@@ -20,8 +20,9 @@ This library provides efficient casting to and from ordinary integer representat
 * Trait based implementation - Conforms to standard Rust implementation patterns
 * No dependencies - Depends on Rust standard library only
 
-# References
-Permission has been explicitly granted to reproduce the agorithms within the following papers.
+# References and Acknowledgments
+Many thanks to the authors of the following white papers:
+(Permission has been explicitly granted to reproduce the agorithms within each paper)
 * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
 * [2] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
 * [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
