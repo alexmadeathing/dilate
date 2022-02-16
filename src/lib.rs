@@ -527,12 +527,58 @@ dilated_int_usize_from_impls!(u32, 2, 3, 4, 5, 6, 7, 8);
 #[cfg(target_pointer_width = "64")]
 dilated_int_usize_from_impls!(u64, 2, 3, 4, 5, 6, 7, 8);
 
+
+// ============================================================================
+// Inner helper functions
+
+#[cfg(not(has_i128))]
+type BigUInt = u64;
+#[cfg(has_i128)]
+type BigUInt = u128;
+
+// Int log is not yet stable
+// https://github.com/rust-lang/rust/issues/70887
+const fn ilog(base: BigUInt, n: BigUInt) -> BigUInt {
+    let mut r = 0;
+    let mut b = base;
+    while b <= n {
+        b = b * base;
+        r += 1;
+    }
+    r
+}
+
+const fn build_dilate_mult_const<const D: BigUInt>(bits_available: BigUInt, round: BigUInt) -> BigUInt {
+    let s = bits_available / D;
+    let max_round = ilog(D - 1, s) - 1;
+    let num_blank_bits = (D - 1).pow((max_round - (round + 1)) as u32);
+    (0x1 << num_blank_bits) | 0x1
+}
+
 #[cfg(test)]
 mod tests {
     use std::marker::PhantomData;
 
     use lazy_static::lazy_static;
     use paste::paste;
+
+    #[test]
+    fn test_ilog() {
+        use super::ilog;
+        for d in 2u32..8u32 {
+            // Don't test too many values of i as we may bump up against floating point error
+            for i in 1u32..64u32 {
+                assert_eq!(ilog(d, i), (i as f32).log(d as f32) as u64);
+            }
+        }
+    }
+
+    #[test]
+    fn test_build_dilate_mult_const() {
+        use super::build_dilate_mult_const;
+        assert_eq!(build_dilate_mult_const::<u8, 3>(0), 0x11);
+        assert_eq!(build_dilate_mult_const::<u8, 3>(1), 0x05);
+    }
 
     struct DilMaskTestData<T, const D: usize> {
         marker: PhantomData<T>,
