@@ -16,7 +16,7 @@ This library provides efficient casting to and from ordinary integer representat
 
 # Goals
 * High performance - Ready to use in performance sensitive contexts
-* N-dimensional - Suitable for multi-dimensional applications (up to 16 dimensions)
+* N-dimensional - Suitable for multi-dimensional applications (up to 8 dimensions)
 * Trait based implementation - Conforms to standard Rust implementation patterns
 * No dependencies - Depends on Rust standard library only
 
