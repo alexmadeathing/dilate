@@ -24,16 +24,16 @@ This library provides efficient casting to and from ordinary integer representat
 TODO
 
 # Roadmap
-Please refer to the Roadmap to V1.0 discussion.
+Please refer to the [Roadmap to V1.0](https://github.com/alexmadeathing/dilate/discussions/2) discussion.
 
 # Contributing
 Contributions are most welcome.
 
-For bugs reports, please submit a bug report.
+For bugs reports, please [submit a bug report](https://github.com/alexmadeathing/dilate/issues/new?assignees=&labels=bug&template=bug_report.md&title=).
 
-For feature requests, please submit a feature request.
+For feature requests, please [submit a feature request](https://github.com/alexmadeathing/dilate/issues/new?assignees=&labels=enhancement&template=feature_request.md&title=).
 
-If you have ideas and want to contribute directly, please start by creating an RFC in the discussions area.
+If you have ideas and want to contribute directly, please start by [creating an RFC](https://github.com/alexmadeathing/dilate/discussions/new) in the discussions area.
 When your code is ready to be published, please submit a pull request attached to your RFC.
 
 Full contributing procedure is WIP.
@@ -48,4 +48,4 @@ Permission has been explicitly granted to reproduce the agorithms within each pa
 
 # License
 
-dilate is licensed under the Anti-Capitalist Software License (v 1.4). This means it is free and open source for use by individuals and organizations that do not operate by capitalist principles.
+dilate is licensed under the [Anti-Capitalist Software License (v 1.4)](https://github.com/alexmadeathing/dilate/blob/main/LICENSE.md). This means it is free and open source for use by individuals and organizations that do not operate by capitalist principles.
