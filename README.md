@@ -1,5 +1,5 @@
 # WARNING
-This library is extremely work in progress - use only if you're willing to do a bit of leg work or help finish it.
+This library is work in progress. We currently support dilation and undilation of types u8, u16, u32, u64, usize. We do not yet fully support u128 (though partial support is in place). We do not yet support arithmetic on dilated integers.
 
 # dilate
 A compact, high performance integer dilation library for Rust.
@@ -20,6 +20,21 @@ This library provides efficient casting to and from ordinary integer representat
 * Trait based implementation - Conforms to standard Rust implementation patterns
 * No dependencies - Depends on Rust standard library only
 
+# Docs
+TODO
+
+# Contributing
+Contributions are most welcome.
+
+For bugs reports, please submit a bug report.
+
+For feature requests, please submit a feature request.
+
+If you have ideas and want to contribute directly, please start by creating an RFC in the discussions area.
+When your code is ready to be published, please submit a pull request attached to your RFC.
+
+Full contributing procedure is WIP.
+
 # References and Acknowledgments
 Many thanks to the authors of the following white papers:
 * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
@@ -27,3 +42,7 @@ Many thanks to the authors of the following white papers:
 * [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
 
 Permission has been explicitly granted to reproduce the agorithms within each paper.
+
+# License
+
+dilate is licensed under the Anti-Capitalist Software License (v 1.4). This means it is free and open source for use by individuals and organizations that do not operate by capitalist principles.
