@@ -12,14 +12,15 @@
 // By: Michael D Adams and David S Wise
 // Permission has been granted to reproduce the agorithms within this paper
 
-mod const_generation;
 
 use std::{num::Wrapping, mem::size_of};
-use const_generation::{build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, UIntX};
+
+mod const_generation;
+use const_generation::{UIntX, build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult, undilate_mask, undilate_shift};
 
 // NOTE Until we have stable specialization, D is limited to 1-8
 #[derive(Clone, Copy, Default, Debug)]
-pub struct DilatedInt<T, const D: usize>(T);
+pub struct DilatedInt<T, const D: usize>(pub T);
 
 // Dilated mask trait
 // Returns the equivalent of DilatedInt::<T, D>::from(0xffffffffffffffff)
@@ -99,10 +100,10 @@ impl From<u8> for DilatedInt<u8, 2> {
         );
 
         // See citation [2]
-        let mut r = value;
-        r = (r | (r << 2)) & 0x33;
-        r = (r | (r << 1)) & 0x55;
-        Self(r)
+        let mut v = value;
+        v = (v | (v << 2)) & 0x33;
+        v = (v | (v << 1)) & 0x55;
+        Self(v)
     }
 }
 
@@ -117,11 +118,11 @@ impl From<u16> for DilatedInt<u16, 2> {
         );
 
         // See citation [2]
-        let mut r = value;
-        r = (r | (r << 4)) & 0x0F0F;
-        r = (r | (r << 2)) & 0x3333;
-        r = (r | (r << 1)) & 0x5555;
-        Self(r)
+        let mut v = value;
+        v = (v | (v << 4)) & 0x0F0F;
+        v = (v | (v << 2)) & 0x3333;
+        v = (v | (v << 1)) & 0x5555;
+        Self(v)
     }
 }
 
@@ -136,12 +137,12 @@ impl From<u32> for DilatedInt<u32, 2> {
         );
 
         // See citation [2]
-        let mut r = value;
-        r = (r | (r << 8)) & 0x00FF00FF;
-        r = (r | (r << 4)) & 0x0F0F0F0F;
-        r = (r | (r << 2)) & 0x33333333;
-        r = (r | (r << 1)) & 0x55555555;
-        Self(r)
+        let mut v = value;
+        v = (v | (v << 8)) & 0x00FF00FF;
+        v = (v | (v << 4)) & 0x0F0F0F0F;
+        v = (v | (v << 2)) & 0x33333333;
+        v = (v | (v << 1)) & 0x55555555;
+        Self(v)
     }
 }
 
@@ -156,13 +157,13 @@ impl From<u64> for DilatedInt<u64, 2> {
         );
 
         // See citation [2]
-        let mut r = value;
-        r = (r | (r << 16)) & 0x0000FFFF0000FFFF;
-        r = (r | (r << 8)) & 0x00FF00FF00FF00FF;
-        r = (r | (r << 4)) & 0x0F0F0F0F0F0F0F0F;
-        r = (r | (r << 2)) & 0x3333333333333333;
-        r = (r | (r << 1)) & 0x5555555555555555;
-        Self(r)
+        let mut v = value;
+        v = (v | (v << 16)) & 0x0000FFFF0000FFFF;
+        v = (v | (v << 8)) & 0x00FF00FF00FF00FF;
+        v = (v | (v << 4)) & 0x0F0F0F0F0F0F0F0F;
+        v = (v | (v << 2)) & 0x3333333333333333;
+        v = (v | (v << 1)) & 0x5555555555555555;
+        Self(v)
     }
 }
 
@@ -178,14 +179,14 @@ impl From<u128> for DilatedInt<u128, 2> {
         );
 
         // See citation [2]
-        let mut r = value;
-        r = (r | (r << 32)) & 0x00000000FFFFFFFF00000000FFFFFFFF;
-        r = (r | (r << 16)) & 0x0000FFFF0000FFFF0000FFFF0000FFFF;
-        r = (r | (r << 8)) & 0x00FF00FF00FF00FF00FF00FF00FF00FF;
-        r = (r | (r << 4)) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F;
-        r = (r | (r << 2)) & 0x33333333333333333333333333333333;
-        r = (r | (r << 1)) & 0x55555555555555555555555555555555;
-        Self(r)
+        let mut v = value;
+        v = (v | (v << 32)) & 0x00000000FFFFFFFF00000000FFFFFFFF;
+        v = (v | (v << 16)) & 0x0000FFFF0000FFFF0000FFFF0000FFFF;
+        v = (v | (v << 8)) & 0x00FF00FF00FF00FF00FF00FF00FF00FF;
+        v = (v | (v << 4)) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F;
+        v = (v | (v << 2)) & 0x33333333333333333333333333333333;
+        v = (v | (v << 1)) & 0x55555555555555555555555555555555;
+        Self(v)
     }
 }
 
@@ -193,10 +194,10 @@ impl From<DilatedInt<u8, 2>> for u8 {
     #[inline]
     fn from(dilated: DilatedInt<u8, 2>) -> Self {
         // See citation [1]
-        let mut t = dilated.0;
-        t = t * 0x3 & (0xCC >> 1);
-        t = t * 0x5 & (0xF0 >> 1);
-        t >> 3
+        let mut v = Wrapping(dilated.0);
+        v = v * Wrapping(0x03) & Wrapping(0xCC >> 1);
+        v = v * Wrapping(0x05) & Wrapping(0xF0 >> 1);
+        v.0 >> 3
     }
 }
 
@@ -204,11 +205,11 @@ impl From<DilatedInt<u16, 2>> for u16 {
     #[inline]
     fn from(dilated: DilatedInt<u16, 2>) -> Self {
         // See citation [1]
-        let mut t = dilated.0;
-        t = t * 0x003 & (0xCCCC >> 1);
-        t = t * 0x005 & (0xF0F0 >> 1);
-        t = t * 0x011 & (0xFF00 >> 1);
-        t >> 7
+        let mut v = Wrapping(dilated.0);
+        v = v * Wrapping(0x003) & Wrapping(0xCCCC >> 1);
+        v = v * Wrapping(0x005) & Wrapping(0xF0F0 >> 1);
+        v = v * Wrapping(0x011) & Wrapping(0xFF00 >> 1);
+        v.0 >> 7
     }
 }
 
@@ -216,12 +217,12 @@ impl From<DilatedInt<u32, 2>> for u32 {
     #[inline]
     fn from(dilated: DilatedInt<u32, 2>) -> Self {
         // See citation [1]
-        let mut t = dilated.0;
-        t = t * 0x003 & (0xCCCCCCCC >> 1);
-        t = t * 0x005 & (0xF0F0F0F0 >> 1);
-        t = t * 0x011 & (0xFF00FF00 >> 1);
-        t = t * 0x101 & (0xFFFF0000 >> 1);
-        t >> 15
+        let mut v = Wrapping(dilated.0);
+        v = v * Wrapping(0x00000003) & Wrapping(0xCCCCCCCC >> 1);
+        v = v * Wrapping(0x00000005) & Wrapping(0xF0F0F0F0 >> 1);
+        v = v * Wrapping(0x00000011) & Wrapping(0xFF00FF00 >> 1);
+        v = v * Wrapping(0x00000101) & Wrapping(0xFFFF0000 >> 1);
+        v.0 >> 15
     }
 }
 
@@ -229,13 +230,13 @@ impl From<DilatedInt<u64, 2>> for u64 {
     #[inline]
     fn from(dilated: DilatedInt<u64, 2>) -> Self {
         // See citation [1]
-        let mut t = dilated.0;
-        t = t * 0x00003 & (0xCCCCCCCCCCCCCCCC >> 1);
-        t = t * 0x00005 & (0xF0F0F0F0F0F0F0F0 >> 1);
-        t = t * 0x00011 & (0xFF00FF00FF00FF00 >> 1);
-        t = t * 0x00101 & (0xFFFF0000FFFF0000 >> 1);
-        t = t * 0x10001 & (0xFFFFFFFF00000000 >> 1);
-        t >> 31
+        let mut v = Wrapping(dilated.0);
+        v = v * Wrapping(0x00003) & Wrapping(0xCCCCCCCCCCCCCCCC >> 1);
+        v = v * Wrapping(0x00005) & Wrapping(0xF0F0F0F0F0F0F0F0 >> 1);
+        v = v * Wrapping(0x00011) & Wrapping(0xFF00FF00FF00FF00 >> 1);
+        v = v * Wrapping(0x00101) & Wrapping(0xFFFF0000FFFF0000 >> 1);
+        v = v * Wrapping(0x10001) & Wrapping(0xFFFFFFFF00000000 >> 1);
+        v.0 >> 31
     }
 }
 
@@ -244,14 +245,14 @@ impl From<DilatedInt<u128, 2>> for u128 {
     #[inline]
     fn from(dilated: DilatedInt<u128, 2>) -> Self {
         // See citation [1]
-        let mut t = dilated.0;
-        t = t * 0x000000003 & (0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC >> 1);
-        t = t * 0x000000005 & (0xF0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0 >> 1);
-        t = t * 0x000000011 & (0xFF00FF00FF00FF00FF00FF00FF00FF00 >> 1);
-        t = t * 0x000000101 & (0xFFFF0000FFFF0000FFFF0000FFFF0000 >> 1);
-        t = t * 0x000010001 & (0xFFFFFFFF00000000FFFFFFFF00000000 >> 1);
-        t = t * 0x100000001 & (0xFFFFFFFFFFFFFFFF0000000000000000 >> 1);
-        t >> 63
+        let mut v = Wrapping(dilated.0);
+        v = v * Wrapping(0x000000003) & Wrapping(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC >> 1);
+        v = v * Wrapping(0x000000005) & Wrapping(0xF0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0 >> 1);
+        v = v * Wrapping(0x000000011) & Wrapping(0xFF00FF00FF00FF00FF00FF00FF00FF00 >> 1);
+        v = v * Wrapping(0x000000101) & Wrapping(0xFFFF0000FFFF0000FFFF0000FFFF0000 >> 1);
+        v = v * Wrapping(0x000010001) & Wrapping(0xFFFFFFFF00000000FFFFFFFF00000000 >> 1);
+        v = v * Wrapping(0x100000001) & Wrapping(0xFFFFFFFFFFFFFFFF0000000000000000 >> 1);
+        v.0 >> 63
     }
 }
 
@@ -268,10 +269,10 @@ impl From<u8> for DilatedInt<u8, 3> {
         );
 
         // See citation [1]
-        let mut r = value;
-        r = (r * 0x011) & 0xC3;
-        r = (r * 0x005) & 0x49;
-        Self(r)
+        let mut v = Wrapping(value);
+        v = (v * Wrapping(0x011)) & Wrapping(0xC3);
+        v = (v * Wrapping(0x005)) & Wrapping(0x49);
+        Self(v.0)
     }
 }
 
@@ -286,11 +287,11 @@ impl From<u16> for DilatedInt<u16, 3> {
         );
 
         // See citation [1]
-        let mut r = value;
-        r = (r * 0x101) & 0xF00F;
-        r = (r * 0x011) & 0x30C3;
-        r = (r * 0x005) & 0x9249;
-        Self(r)
+        let mut v = Wrapping(value);
+        v = (v * Wrapping(0x101)) & Wrapping(0xF00F);
+        v = (v * Wrapping(0x011)) & Wrapping(0x30C3);
+        v = (v * Wrapping(0x005)) & Wrapping(0x9249);
+        Self(v.0)
     }
 }
 
@@ -305,12 +306,12 @@ impl From<u32> for DilatedInt<u32, 3> {
         );
 
         // See citation [1]
-        let mut r = value;
-        r = (r * 0x10001) & 0xFF0000FF;
-        r = (r * 0x00101) & 0x0F00F00F;
-        r = (r * 0x00011) & 0xC30C30C3;
-        r = (r * 0x00005) & 0x49249249;
-        Self(r)
+        let mut v = Wrapping(value);
+        v = (v * Wrapping(0x10001)) & Wrapping(0xFF0000FF);
+        v = (v * Wrapping(0x00101)) & Wrapping(0x0F00F00F);
+        v = (v * Wrapping(0x00011)) & Wrapping(0xC30C30C3);
+        v = (v * Wrapping(0x00005)) & Wrapping(0x49249249);
+        Self(v.0)
     }
 }
 
@@ -325,13 +326,13 @@ impl From<u64> for DilatedInt<u64, 3> {
         );
 
         // See citation [1]
-        let mut r = value;
-        r = (r * 0x100000001) & 0xFFFF00000000FFFF;
-        r = (r * 0x000010001) & 0x00FF0000FF0000FF;
-        r = (r * 0x000000101) & 0xF00F00F00F00F00F;
-        r = (r * 0x000000011) & 0x30C30C30C30C30C3;
-        r = (r * 0x000000005) & 0x9249249249249249;
-        Self(r)
+        let mut v = Wrapping(value);
+        v = (v * Wrapping(0x100000001)) & Wrapping(0xFFFF00000000FFFF);
+        v = (v * Wrapping(0x000010001)) & Wrapping(0x00FF0000FF0000FF);
+        v = (v * Wrapping(0x000000101)) & Wrapping(0xF00F00F00F00F00F);
+        v = (v * Wrapping(0x000000011)) & Wrapping(0x30C30C30C30C30C3);
+        v = (v * Wrapping(0x000000005)) & Wrapping(0x9249249249249249);
+        Self(v.0)
     }
 }
 
@@ -347,30 +348,35 @@ impl From<u128> for DilatedInt<u128, 3> {
         );
 
         // See citation [1]
-        let mut r = value;
-        r = (r * 0x10000000000000001) & 0xFFFFFFFF0000000000000000FFFFFFFF;
-        r = (r * 0x00000000100000001) & 0x0000FFFF00000000FFFF00000000FFFF;
-        r = (r * 0x00000000000010001) & 0xFF0000FF0000FF0000FF0000FF0000FF;
-        r = (r * 0x00000000000000101) & 0x0F00F00F00F00F00F00F00F00F00F00F;
-        r = (r * 0x00000000000000011) & 0xC30C30C30C30C30C30C30C30C30C30C3;
-        r = (r * 0x00000000000000005) & 0x49249249249249249249249249249249;
-        Self(r)
+        let mut v = Wrapping(value);
+        v = (v * Wrapping(0x10000000000000001)) & Wrapping(0xFFFFFFFF0000000000000000FFFFFFFF);
+        v = (v * Wrapping(0x00000000100000001)) & Wrapping(0x0000FFFF00000000FFFF00000000FFFF);
+        v = (v * Wrapping(0x00000000000010001)) & Wrapping(0xFF0000FF0000FF0000FF0000FF0000FF);
+        v = (v * Wrapping(0x00000000000000101)) & Wrapping(0x0F00F00F00F00F00F00F00F00F00F00F);
+        v = (v * Wrapping(0x00000000000000011)) & Wrapping(0xC30C30C30C30C30C30C30C30C30C30C3);
+        v = (v * Wrapping(0x00000000000000005)) & Wrapping(0x49249249249249249249249249249249);
+        Self(v.0)
     }
 }
 
 impl From<DilatedInt<u8, 3>> for u8 {
     #[inline]
     fn from(dilated: DilatedInt<u8, 3>) -> Self {
-        let mut t = dilated.0;
-        t
+        // See citation [1]
+        let mut v = Wrapping(dilated.0);
+        v = (v * Wrapping(0x15)) & Wrapping(0x0e);
+        v.0 >> 2
     }
 }
 
 impl From<DilatedInt<u16, 3>> for u16 {
     #[inline]
     fn from(dilated: DilatedInt<u16, 3>) -> Self {
-        let mut t = dilated.0;
-        t
+        // See citation [1]
+        let mut v = Wrapping(dilated.0);
+        v = (v * Wrapping(0x0015)) & Wrapping(0x1c0e);
+        v = (v * Wrapping(0x1041)) & Wrapping(0x1ff0);
+        v.0 >> 8
     }
 }
 
@@ -378,26 +384,31 @@ impl From<DilatedInt<u32, 3>> for u32 {
     #[inline]
     fn from(dilated: DilatedInt<u32, 3>) -> Self {
         // See citation [1]
-        let mut t = dilated.0;
-        t = (t * 0x00015) & 0x0E070381;
-        t = (t * 0x01041) & 0x0FF80001;
-        t = (t * 0x40001) & 0x0FFC0000;
-        t >> 18
+        let mut v = Wrapping(dilated.0);
+        v = (v * Wrapping(0x00015)) & Wrapping(0x0E070381);
+        v = (v * Wrapping(0x01041)) & Wrapping(0x0FF80001);
+        v = (v * Wrapping(0x40001)) & Wrapping(0x0FFFFFFE);
+        v.0 >> 18
     }
 }
 
 impl From<DilatedInt<u64, 3>> for u64 {
     fn from(dilated: DilatedInt<u64, 3>) -> Self {
-        let mut t = dilated.0;
-        t
+        // See citation [1]
+        let mut v = Wrapping(dilated.0);
+        v = (v * Wrapping(0x0000000000000015)) & Wrapping(0x1c0e070381c0e070);
+        v = (v * Wrapping(0x0000000000001041)) & Wrapping(0x1ff00003fe00007f);
+        v = (v * Wrapping(0x0000001000040001)) & Wrapping(0x1ffffffc00000000);
+        v.0 >> 40
     }
 }
 
 #[cfg(has_i128)]
 impl From<DilatedInt<u128, 3>> for u128 {
     fn from(dilated: DilatedInt<u128, 3>) -> Self {
-        let mut t = dilated.0;
-        t
+        let mut v = Wrapping(dilated.0);
+        todo!();
+        v.0
     }
 }
 
@@ -414,8 +425,10 @@ macro_rules! dilated_int_dn_from_impls {
                 debug_assert!(value <= Self::undilated_max(), "Paremeter 'value' exceeds maximum");
 
                 let mut v = Wrapping(value);
-                for i in 0..=dilate_max_round::<$t, $d>() {
+                let mut i = 0;
+                while i <= dilate_max_round::<$t, $d>() {
                     v = (v * Wrapping(dilate_mult::<$t, $d>(i) as $t)) & Wrapping(dilate_mask::<$t, $d>(i) as $t);
+                    i += 1;
                 }
                 
                 Self(v.0)
@@ -425,7 +438,14 @@ macro_rules! dilated_int_dn_from_impls {
         impl From<DilatedInt<$t, $d>> for $t {
             #[inline]
             fn from(dilated: DilatedInt<$t, $d>) -> $t {
-                dilated.0
+                let mut v = Wrapping(dilated.0);
+                let mut i = 0;
+                while i <= undilate_max_round::<$t, $d>() {
+                    v = (v * Wrapping(undilate_mult::<$t, $d>(i) as $t)) & Wrapping(undilate_mask::<$t, $d>(i) as $t);
+                    i += 1;
+                }
+
+                v.0 >> undilate_shift::<$t, $d>() as $t
             }
         }
     )+}
@@ -475,297 +495,252 @@ dilated_int_usize_from_impls!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
 
 #[cfg(test)]
 mod tests {
-    use std::{marker::PhantomData, num::Wrapping};
+    use std::marker::PhantomData;
 
-    use lazy_static::lazy_static;
     use paste::paste;
+    use lazy_static::lazy_static;
 
-    use crate::{DilatedInt, const_generation::{dilate_max_round, dilate_mult, dilate_mask}};
+    use crate::const_generation::UIntX;
 
-    #[test]
-    fn test() {
-        println!("0b1101 dilated: 0b{:b}", DilatedInt::<u32, 8>::from(0b1101).0);
-        assert_eq!(DilatedInt::<u32, 8>::from(0b1101).0, 0b1000000010000000000000001);
-
-//        let mut v = Wrapping(0b1101u16);
-//        for i in 0..=dilate_max_round::<u16, 4>() {
-//            println!("i = {i}, v = 0b{:b}, mult = 0b{:b}, mask = 0b{:b}", v, dilate_mult::<u16, 4>(i) as u16, dilate_mask::<u16, 4>(i) as u16);
-//            v = (v * Wrapping(dilate_mult::<u16, 4>(i) as u16)) & Wrapping(dilate_mask::<u16, 4>(i) as u16);
-//        }
-//
-//        println!("v_end = 0b{v:b}");
-    }
-
-    struct DilMaskTestData<T, const D: usize> {
+    struct TestData<T, const D: usize> {
         marker: PhantomData<T>,
     }
 
-    macro_rules! impl_dil_mask {
-        ($t:ty, $d:literal, $v:expr) => {
-            impl DilMaskTestData<$t, $d> {
+    macro_rules! impl_test_data {
+        ($t:ty, $d:literal, $dilated_mask:expr, $undilated_max:expr) => {
+            impl TestData<$t, $d> {
                 #[inline]
                 fn dilated_mask() -> $t {
-                    $v as $t
+                    ($dilated_mask) as $t
                 }
-            }
-        };
-    }
-    impl_dil_mask!(u8, 1, 0xff);
-    impl_dil_mask!(u8, 2, 0x55);
-    impl_dil_mask!(u8, 3, 0x09);
-    impl_dil_mask!(u8, 4, 0x11);
-    impl_dil_mask!(u8, 5, 0x01);
-    impl_dil_mask!(u8, 6, 0x01);
-    impl_dil_mask!(u8, 7, 0x01);
-    impl_dil_mask!(u8, 8, 0x01);
 
-    impl_dil_mask!(u16, 1, 0xffff);
-    impl_dil_mask!(u16, 2, 0x5555);
-    impl_dil_mask!(u16, 3, 0x1249);
-    impl_dil_mask!(u16, 4, 0x1111);
-    impl_dil_mask!(u16, 5, 0x0421);
-    impl_dil_mask!(u16, 6, 0x0041);
-    impl_dil_mask!(u16, 7, 0x0081);
-    impl_dil_mask!(u16, 8, 0x0101);
-
-    impl_dil_mask!(u32, 1, 0xffffffff);
-    impl_dil_mask!(u32, 2, 0x55555555);
-    impl_dil_mask!(u32, 3, 0x09249249);
-    impl_dil_mask!(u32, 4, 0x11111111);
-    impl_dil_mask!(u32, 5, 0x02108421);
-    impl_dil_mask!(u32, 6, 0x01041041);
-    impl_dil_mask!(u32, 7, 0x00204081);
-    impl_dil_mask!(u32, 8, 0x01010101);
-
-    impl_dil_mask!(u64, 1, 0xffffffffffffffff);
-    impl_dil_mask!(u64, 2, 0x5555555555555555);
-    impl_dil_mask!(u64, 3, 0x1249249249249249);
-    impl_dil_mask!(u64, 4, 0x1111111111111111);
-    impl_dil_mask!(u64, 5, 0x0084210842108421);
-    impl_dil_mask!(u64, 6, 0x0041041041041041);
-    impl_dil_mask!(u64, 7, 0x0102040810204081);
-    impl_dil_mask!(u64, 8, 0x0101010101010101);
-
-    macro_rules! impl_dil_mask_usize {
-        ($innert:ty) => {
-            impl_dil_mask!(usize, 1, DilMaskTestData::<$innert, 1>::dilated_mask());
-            impl_dil_mask!(usize, 2, DilMaskTestData::<$innert, 2>::dilated_mask());
-            impl_dil_mask!(usize, 3, DilMaskTestData::<$innert, 3>::dilated_mask());
-            impl_dil_mask!(usize, 4, DilMaskTestData::<$innert, 4>::dilated_mask());
-            impl_dil_mask!(usize, 5, DilMaskTestData::<$innert, 5>::dilated_mask());
-            impl_dil_mask!(usize, 6, DilMaskTestData::<$innert, 6>::dilated_mask());
-            impl_dil_mask!(usize, 7, DilMaskTestData::<$innert, 7>::dilated_mask());
-            impl_dil_mask!(usize, 8, DilMaskTestData::<$innert, 8>::dilated_mask());
-        };
-    }
-    #[cfg(target_pointer_width = "16")]
-    impl_dil_mask_usize!(u16);
-    #[cfg(target_pointer_width = "32")]
-    impl_dil_mask_usize!(u32);
-    #[cfg(target_pointer_width = "64")]
-    impl_dil_mask_usize!(u64);
-
-    struct UndilMaxTestData<T, const D: usize> {
-        marker: PhantomData<T>,
-    }
-
-    macro_rules! impl_undil_max {
-        ($t:ty, $d:literal, $v:expr) => {
-            impl UndilMaxTestData<$t, $d> {
                 #[inline]
                 fn undilated_max() -> $t {
-                    $v as $t
+                    ($undilated_max) as $t
                 }
             }
         };
     }
-    impl_undil_max!(u8, 1, 0xff);
-    impl_undil_max!(u8, 2, 0x0f);
-    impl_undil_max!(u8, 3, 0x03);
-    impl_undil_max!(u8, 4, 0x03);
-    impl_undil_max!(u8, 5, 0x01);
-    impl_undil_max!(u8, 6, 0x01);
-    impl_undil_max!(u8, 7, 0x01);
-    impl_undil_max!(u8, 8, 0x01);
+    impl_test_data!(u8, 1, 0xff, 0xff);
+    impl_test_data!(u8, 2, 0x55, 0x0f);
+    impl_test_data!(u8, 3, 0x09, 0x03);
+    impl_test_data!(u8, 4, 0x11, 0x03);
+    impl_test_data!(u8, 5, 0x01, 0x01);
+    impl_test_data!(u8, 6, 0x01, 0x01);
+    impl_test_data!(u8, 7, 0x01, 0x01);
+    impl_test_data!(u8, 8, 0x01, 0x01);
 
-    impl_undil_max!(u16, 1, 0xffff);
-    impl_undil_max!(u16, 2, 0x00ff);
-    impl_undil_max!(u16, 3, 0x001f);
-    impl_undil_max!(u16, 4, 0x000f);
-    impl_undil_max!(u16, 5, 0x0007);
-    impl_undil_max!(u16, 6, 0x0003);
-    impl_undil_max!(u16, 7, 0x0003);
-    impl_undil_max!(u16, 8, 0x0003);
+    impl_test_data!(u16, 1, 0xffff, 0xffff);
+    impl_test_data!(u16, 2, 0x5555, 0x00ff);
+    impl_test_data!(u16, 3, 0x1249, 0x001f);
+    impl_test_data!(u16, 4, 0x1111, 0x000f);
+    impl_test_data!(u16, 5, 0x0421, 0x0007);
+    impl_test_data!(u16, 6, 0x0041, 0x0003);
+    impl_test_data!(u16, 7, 0x0081, 0x0003);
+    impl_test_data!(u16, 8, 0x0101, 0x0003);
 
-    impl_undil_max!(u32, 1, 0xffffffff);
-    impl_undil_max!(u32, 2, 0x0000ffff);
-    impl_undil_max!(u32, 3, 0x000003ff);
-    impl_undil_max!(u32, 4, 0x000000ff);
-    impl_undil_max!(u32, 5, 0x0000003f);
-    impl_undil_max!(u32, 6, 0x0000001f);
-    impl_undil_max!(u32, 7, 0x0000000f);
-    impl_undil_max!(u32, 8, 0x0000000f);
+    impl_test_data!(u32, 1, 0xffffffff, 0xffffffff);
+    impl_test_data!(u32, 2, 0x55555555, 0x0000ffff);
+    impl_test_data!(u32, 3, 0x09249249, 0x000003ff);
+    impl_test_data!(u32, 4, 0x11111111, 0x000000ff);
+    impl_test_data!(u32, 5, 0x02108421, 0x0000003f);
+    impl_test_data!(u32, 6, 0x01041041, 0x0000001f);
+    impl_test_data!(u32, 7, 0x00204081, 0x0000000f);
+    impl_test_data!(u32, 8, 0x01010101, 0x0000000f);
 
-    impl_undil_max!(u64, 1, 0xffffffffffffffff);
-    impl_undil_max!(u64, 2, 0x00000000ffffffff);
-    impl_undil_max!(u64, 3, 0x00000000001fffff);
-    impl_undil_max!(u64, 4, 0x000000000000ffff);
-    impl_undil_max!(u64, 5, 0x0000000000000fff);
-    impl_undil_max!(u64, 6, 0x00000000000003ff);
-    impl_undil_max!(u64, 7, 0x00000000000001ff);
-    impl_undil_max!(u64, 8, 0x00000000000000ff);
+    impl_test_data!(u64, 1, 0xffffffffffffffff, 0xffffffffffffffff);
+    impl_test_data!(u64, 2, 0x5555555555555555, 0x00000000ffffffff);
+    impl_test_data!(u64, 3, 0x1249249249249249, 0x00000000001fffff);
+    impl_test_data!(u64, 4, 0x1111111111111111, 0x000000000000ffff);
+    impl_test_data!(u64, 5, 0x0084210842108421, 0x0000000000000fff);
+    impl_test_data!(u64, 6, 0x0041041041041041, 0x00000000000003ff);
+    impl_test_data!(u64, 7, 0x0102040810204081, 0x00000000000001ff);
+    impl_test_data!(u64, 8, 0x0101010101010101, 0x00000000000000ff);
 
-    macro_rules! impl_undil_max_usize {
-        ($innert:ty) => {
-            impl_undil_max!(usize, 1, UndilMaxTestData::<$innert, 1>::undilated_max());
-            impl_undil_max!(usize, 2, UndilMaxTestData::<$innert, 2>::undilated_max());
-            impl_undil_max!(usize, 3, UndilMaxTestData::<$innert, 3>::undilated_max());
-            impl_undil_max!(usize, 4, UndilMaxTestData::<$innert, 4>::undilated_max());
-            impl_undil_max!(usize, 5, UndilMaxTestData::<$innert, 5>::undilated_max());
-            impl_undil_max!(usize, 6, UndilMaxTestData::<$innert, 6>::undilated_max());
-            impl_undil_max!(usize, 7, UndilMaxTestData::<$innert, 7>::undilated_max());
-            impl_undil_max!(usize, 8, UndilMaxTestData::<$innert, 8>::undilated_max());
-        };
+    macro_rules! impl_dil_mask_usize {
+        ($innert:ty, $($d:literal),+) => {$(
+            impl_test_data!(usize, $d, TestData::<$innert, $d>::dilated_mask(), TestData::<$innert, $d>::undilated_max());
+        )+}
     }
     #[cfg(target_pointer_width = "16")]
-    impl_undil_max_usize!(u16);
+    impl_dil_mask_usize!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
     #[cfg(target_pointer_width = "32")]
-    impl_undil_max_usize!(u32);
+    impl_dil_mask_usize!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
     #[cfg(target_pointer_width = "64")]
-    impl_undil_max_usize!(u64);
+    impl_dil_mask_usize!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
 
-    /*    static TEST_DATA_FILENAME: &'static str = "dilated_int_test_data.json";
-    fn import_test_data()
+    // NOTE - The following test cases are shared between all types
+    //        The values are first cast to the target type, then masked with either:
+    //            undilated_max() for undilated values
+    //            dilated_mask() for dilated values
+    //        This procedure ensures that the test data is 100% valid in all cases
+    // NOTE - I currently don't have a good way to extend these test cases to support u128, without duplication
     lazy_static! {
-        static ref TEST_DATA: super::LocationTestData<$t> = super::LocationTestData::<$t>::import(String::from(LOCATION_TEST_DATA_PATH));
-    }*/
-    /*
-    lazy_static! {
-        #[cfg(not(has_i128))]
-        static ref UNDILATED_TEST_CASES: Vec<u64> = vec![
-            0x0000000000000000,
-            0xFFFFFFFF00000000,
-            0xFFFF0000FFFF0000,
-            0xFF00FF00FF00FF00,
-            0xF0F0F0F0F0F0F0F0,
-            0xcccccccccccccccc,
-            0xaaaaaaaaaaaaaaaa,
-            0xffffffffffffffff,
-            0x5555555555555555,
-            0x3333333333333333,
-            0x0F0F0F0F0F0F0F0F,
-            0x00FF00FF00FF00FF,
-            0x0000FFFF0000FFFF,
-            0x00000000FFFFFFFF,
-        ];
-
-        #[cfg(has_i128)]
-        static ref UNDILATED_TEST_CASES: Vec<u64> = vec![
-            0x00000000000000000000000000000000,
-            0xFFFFFFFFFFFFFFFF0000000000000000,
-            0xFFFFFFFF00000000FFFFFFFF00000000,
-            0xFFFF0000FFFF0000FFFF0000FFFF0000,
-            0xFF00FF00FF00FF00FF00FF00FF00FF00,
-            0xF0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0,
-            0xcccccccccccccccccccccccccccccccc,
-            0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,
-            0xffffffffffffffffffffffffffffffff,
-            0x55555555555555555555555555555555,
-            0x33333333333333333333333333333333,
-            0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F,
-            0x00FF00FF00FF00FF00FF00FF00FF00FF,
-            0x0000FFFF0000FFFF0000FFFF0000FFFF,
-            0x00000000FFFFFFFF00000000FFFFFFFF,
-            0x0000000000000000FFFFFFFFFFFFFFFF,
-        ];
-
-        static ref DILATED_TEST_CASES_D1: Vec<u64> = vec![
-            0x0000000000000000,
-            0xFFFFFFFF00000000,
-            0xFFFF0000FFFF0000,
-            0xFF00FF00FF00FF00,
-            0xF0F0F0F0F0F0F0F0,
-            0xcccccccccccccccc,
-            0xaaaaaaaaaaaaaaaa,
-            0xffffffffffffffff,
-            0x5555555555555555,
-            0x3333333333333333,
-            0x0F0F0F0F0F0F0F0F,
-            0x00FF00FF00FF00FF,
-            0x0000FFFF0000FFFF,
-            0x00000000FFFFFFFF,
-        ];
-
-        static ref DILATED_TEST_CASES_D2: Vec<u64> = vec![
-            0x00000000000000000000000000000000,
-            0xAAAAAAAAAAAAAAAA0000000000000000,
-            0xFFFF0000FFFF0000,
-            0xFF00FF00FF00FF00,
-            0xF0F0F0F0F0F0F0F0,
-            0xcccccccccccccccc,
-            0xaaaaaaaaaaaaaaaa,
-            0xffffffffffffffff,
-            0x5555555555555555,
-            0x3333333333333333,
-            0x0F0F0F0F0F0F0F0F,
-            0x00FF00FF00FF00FF,
-            0x0000FFFF0000FFFF,
-            0x00000000FFFFFFFF,
-        ];
-
-        static ref TEST_CASES: [Vec<(u64, u64)>; 3] = [
-            // D0 test cases (not used)
-            Vec::default(),
-
-            // D1 test cases (undilated, dilated)
+        static ref TEST_CASES: [Vec<(UIntX, UIntX)>; 9] = [
+            // D0 (not used)
+            Vec::new(),
+    
+            // D1 (data should pass through unchanged)
             vec![
-                (0x00000000, 0x00000000),
-                (0xFFFF0000, 0xFFFF0000),
-                (0xFF00FF00, 0xFF00FF00),
-                (0xF0F0F0F0, 0xF0F0F0F0),
-                (0xcccccccc, 0xcccccccc),
-                (0xaaaaaaaa, 0xaaaaaaaa),
-                (0xffffffff, 0xffffffff),
-                (0x55555555, 0x55555555),
-                (0x33333333, 0x33333333),
-                (0x0F0F0F0F, 0x0F0F0F0F),
-                (0x00FF00FF, 0x00FF00FF),
-                (0x0000FFFF, 0x0000FFFF),
+                (0xffffffffffffffff, 0xffffffffffffffff),
+                (0x0000000000000000, 0x0000000000000000),
+                (0xffffffff00000000, 0xffffffff00000000),
+                (0x00000000ffffffff, 0x00000000ffffffff),
+                (0xffff0000ffff0000, 0xffff0000ffff0000),
+                (0x0000ffff0000ffff, 0x0000ffff0000ffff),
+                (0xff00ff00ff00ff00, 0xff00ff00ff00ff00),
+                (0x00ff00ff00ff00ff, 0x00ff00ff00ff00ff),
+                (0xf0f0f0f0f0f0f0f0, 0xf0f0f0f0f0f0f0f0),
+                (0x0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f),
+                (0xcccccccccccccccc, 0xcccccccccccccccc),
+                (0x3333333333333333, 0x3333333333333333),
+                (0xaaaaaaaaaaaaaaaa, 0xaaaaaaaaaaaaaaaa),
+                (0x5555555555555555, 0x5555555555555555),
+            ],
+    
+            // D2
+            vec![
+                (0xffffffffffffffff, 0x5555555555555555),
+                (0x0000000000000000, 0x0000000000000000),
+                (0xffffffff00000000, 0x0000000000000000),
+                (0x00000000ffffffff, 0x5555555555555555),
+                (0xffff0000ffff0000, 0x5555555500000000),
+                (0x0000ffff0000ffff, 0x0000000055555555),
+                (0xff00ff00ff00ff00, 0x5555000055550000),
+                (0x00ff00ff00ff00ff, 0x0000555500005555),
+                (0xf0f0f0f0f0f0f0f0, 0x5500550055005500),
+                (0x0f0f0f0f0f0f0f0f, 0x0055005500550055),
+                (0xcccccccccccccccc, 0x5050505050505050),
+                (0x3333333333333333, 0x0505050505050505),
+                (0xaaaaaaaaaaaaaaaa, 0x4444444444444444),
+                (0x5555555555555555, 0x1111111111111111),
+            ],
+    
+            // D3
+            vec![
+                (0xffffffffffffffff, 0x1249249249249249),
+                (0x0000000000000000, 0x0000000000000000),
+                (0xffffffff00000000, 0x0000000000000000),
+                (0x00000000ffffffff, 0x1249249249249249),
+                (0xffff0000ffff0000, 0x1249000000000000),
+                (0x0000ffff0000ffff, 0x0000249249249249),
+                (0xff00ff00ff00ff00, 0x0000249249000000),
+                (0x00ff00ff00ff00ff, 0x1249000000249249),
+                (0xf0f0f0f0f0f0f0f0, 0x1000249000249000),
+                (0x0f0f0f0f0f0f0f0f, 0x0249000249000249),
+                (0xcccccccccccccccc, 0x0240240240240240),
+                (0x3333333333333333, 0x1009009009009009),
+                (0xaaaaaaaaaaaaaaaa, 0x0208208208208208),
+                (0x5555555555555555, 0x1041041041041041),
+            ],
+    
+            // D4
+            vec![
+                (0xffffffffffffffff, 0x1111111111111111),
+                (0x0000000000000000, 0x0000000000000000),
+                (0xffffffff00000000, 0x0000000000000000),
+                (0x00000000ffffffff, 0x1111111111111111),
+                (0xffff0000ffff0000, 0x0000000000000000),
+                (0x0000ffff0000ffff, 0x1111111111111111),
+                (0xff00ff00ff00ff00, 0x1111111100000000),
+                (0x00ff00ff00ff00ff, 0x0000000011111111),
+                (0xf0f0f0f0f0f0f0f0, 0x1111000011110000),
+                (0x0f0f0f0f0f0f0f0f, 0x0000111100001111),
+                (0xcccccccccccccccc, 0x1100110011001100),
+                (0x3333333333333333, 0x0011001100110011),
+                (0xaaaaaaaaaaaaaaaa, 0x1010101010101010),
+                (0x5555555555555555, 0x0101010101010101),
             ],
 
-            // D2 test cases
+            // D5
             vec![
-                (0x00000000, 0x0000000000000000),
-                (0xFFFF0000, 0xAAAAAAAA00000000),
-                (0xFF00FF00, 0xAAAA0000AAAA0000),
-                (0xF0F0F0F0, 0xAA00AA00AA00AA00),
-                (0xcccccccc, 0xA0A0A0A0A0A0A0A0),
-                (0xaaaaaaaa, 0xaaaaaaaa),
-                (0xffffffff, 0xffffffff),
-                (0x55555555, 0x55555555),
-                (0x33333333, 0x33333333),
-                (0x0F0F0F0F, 0x0F0F0F0F),
-                (0x00FF00FF, 0x00FF00FF),
-                (0x0000FFFF, 0x0000FFFF),
+                (0xffffffffffffffff, 0x0084210842108421),
+                (0x0000000000000000, 0x0000000000000000),
+                (0xffffffff00000000, 0x0000000000000000),
+                (0x00000000ffffffff, 0x0084210842108421),
+                (0xffff0000ffff0000, 0x0000000000000000),
+                (0x0000ffff0000ffff, 0x0084210842108421),
+                (0xff00ff00ff00ff00, 0x0084210000000000),
+                (0x00ff00ff00ff00ff, 0x0000000842108421),
+                (0xf0f0f0f0f0f0f0f0, 0x0000000842100000),
+                (0x0f0f0f0f0f0f0f0f, 0x0084210000008421),
+                (0xcccccccccccccccc, 0x0084000840008400),
+                (0x3333333333333333, 0x0000210002100021),
+                (0xaaaaaaaaaaaaaaaa, 0x0080200802008020),
+                (0x5555555555555555, 0x0004010040100401),
+            ],
+
+            // D6
+            vec![
+                (0xffffffffffffffff, 0x0041041041041041),
+                (0x0000000000000000, 0x0000000000000000),
+                (0xffffffff00000000, 0x0000000000000000),
+                (0x00000000ffffffff, 0x0041041041041041),
+                (0xffff0000ffff0000, 0x0000000000000000),
+                (0x0000ffff0000ffff, 0x0041041041041041),
+                (0xff00ff00ff00ff00, 0x0041000000000000),
+                (0x00ff00ff00ff00ff, 0x0000041041041041),
+                (0xf0f0f0f0f0f0f0f0, 0x0000041041000000),
+                (0x0f0f0f0f0f0f0f0f, 0x0041000000041041),
+                (0xcccccccccccccccc, 0x0000041000041000),
+                (0x3333333333333333, 0x0041000041000041),
+                (0xaaaaaaaaaaaaaaaa, 0x0040040040040040),
+                (0x5555555555555555, 0x0001001001001001),
+            ],
+
+            // D7
+            vec![
+                (0xffffffffffffffff, 0x0102040810204081),
+                (0x0000000000000000, 0x0000000000000000),
+                (0xffffffff00000000, 0x0000000000000000),
+                (0x00000000ffffffff, 0x0102040810204081),
+                (0xffff0000ffff0000, 0x0000000000000000),
+                (0x0000ffff0000ffff, 0x0102040810204081),
+                (0xff00ff00ff00ff00, 0x0100000000000000),
+                (0x00ff00ff00ff00ff, 0x0002040810204081),
+                (0xf0f0f0f0f0f0f0f0, 0x0002040810000000),
+                (0x0f0f0f0f0f0f0f0f, 0x0100000000204081),
+                (0xcccccccccccccccc, 0x0002040000204000),
+                (0x3333333333333333, 0x0100000810000081),
+                (0xaaaaaaaaaaaaaaaa, 0x0002000800200080),
+                (0x5555555555555555, 0x0100040010004001),
+            ],
+
+            // D8
+            vec![
+                (0xffffffffffffffff, 0x0101010101010101),
+                (0x0000000000000000, 0x0000000000000000),
+                (0xffffffff00000000, 0x0000000000000000),
+                (0x00000000ffffffff, 0x0101010101010101),
+                (0xffff0000ffff0000, 0x0000000000000000),
+                (0x0000ffff0000ffff, 0x0101010101010101),
+                (0xff00ff00ff00ff00, 0x0000000000000000),
+                (0x00ff00ff00ff00ff, 0x0101010101010101),
+                (0xf0f0f0f0f0f0f0f0, 0x0101010100000000),
+                (0x0f0f0f0f0f0f0f0f, 0x0000000001010101),
+                (0xcccccccccccccccc, 0x0101000001010000),
+                (0x3333333333333333, 0x0000010100000101),
+                (0xaaaaaaaaaaaaaaaa, 0x0100010001000100),
+                (0x5555555555555555, 0x0001000100010001),
             ],
         ];
-    }*/
+    }
 
     macro_rules! integer_dilation_tests {
         ($t:ty, $($d:literal),+) => {$(
             paste! {
-                mod [< integer_dilation_ $t _ $d d >] {
-                    use super::{DilMaskTestData, UndilMaxTestData};
+                mod [< $t _d $d >] {
+                    use super::{TestData, TEST_CASES};
                     use super::super::{DilatedInt, DilatedMask, UndilatedMax};
 
                     #[test]
                     fn dilated_mask_correct() {
-                        assert_eq!(DilatedInt::<$t, $d>::dilated_mask(), DilMaskTestData::<$t, $d>::dilated_mask());
+                        assert_eq!(DilatedInt::<$t, $d>::dilated_mask(), TestData::<$t, $d>::dilated_mask());
                     }
 
                     #[test]
                     fn undilated_max_correct() {
-                        assert_eq!(DilatedInt::<$t, $d>::undilated_max(), UndilMaxTestData::<$t, $d>::undilated_max());
+                        assert_eq!(DilatedInt::<$t, $d>::undilated_max(), TestData::<$t, $d>::undilated_max());
                     }
 
                     #[test]
@@ -774,16 +749,41 @@ mod tests {
                         // D1 dilated ints have no max value
                         // This is a hack, but it means we can run the same tests for all D values
                         if $d != 1 {
-                            let _ = DilatedInt::<$t, $d>::from(UndilMaxTestData::<$t, $d>::undilated_max() + 1);
+                            let _ = DilatedInt::<$t, $d>::from(TestData::<$t, $d>::undilated_max() + 1);
                         } else {
                             panic!("Paremeter 'value' exceeds maximum");
+                        }
+                    }
+
+                    #[test]
+                    fn from_raw_int_is_correct() {
+                        // To create many more valid test cases, we doubly iterate all of them and xor the values
+                        for (undilated_a, dilated_a) in TEST_CASES[$d].iter() {
+                            for (undilated_b, dilated_b) in TEST_CASES[$d].iter() {
+                                let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<$t, $d>::undilated_max();
+                                let dilated = (*dilated_a ^ *dilated_b) as $t & TestData::<$t, $d>::dilated_mask();
+
+                                assert_eq!(DilatedInt::<$t, $d>::from(undilated).0, dilated);
+                            }
+                        }
+                    }
+
+                    #[test]
+                    fn to_raw_int_is_correct() {
+                        // To create many more valid test cases, we doubly iterate all of them and xor the values
+                        for (undilated_a, dilated_a) in TEST_CASES[$d].iter() {
+                            for (undilated_b, dilated_b) in TEST_CASES[$d].iter() {
+                                let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<$t, $d>::undilated_max();
+                                let dilated = (*dilated_a ^ *dilated_b) as $t & TestData::<$t, $d>::dilated_mask();
+
+                                assert_eq!($t::from(DilatedInt::<$t, $d>(dilated)), undilated);
+                            }
                         }
                     }
                 }
             }
         )+}
     }
-
     integer_dilation_tests!(u8, 1, 2, 3, 4, 5, 6, 7, 8);
     integer_dilation_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
     integer_dilation_tests!(u32, 1, 2, 3, 4, 5, 6, 7, 8);

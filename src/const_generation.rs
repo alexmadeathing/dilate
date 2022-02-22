@@ -1,4 +1,3 @@
-use core::num;
 use std::mem::size_of;
 
 // For most const operations, we will use the largest available integer
@@ -99,9 +98,30 @@ pub(crate) const fn undilate_mult<T, const D: UIntX>(round: UIntX) -> UIntX {
 // See section IV.D in citation [1]
 #[inline]
 pub(crate) const fn undilate_mask<T, const D: UIntX>(round: UIntX) -> UIntX {
+    let s = (size_of::<T>() * 8) as UIntX / D;
     let num_blank_bits = D.pow(round as u32 + 1) * (D - 1);
     let num_set_bits = D.pow(round as u32 + 1);
-    0
+
+    let sequence_length = num_blank_bits + num_set_bits;
+    let left_most_bit = D * (s - 1) + 1;
+
+    let num_set_bits = if num_set_bits < left_most_bit { num_set_bits } else { left_most_bit };
+
+    let initial_shift = left_most_bit - num_set_bits;
+
+    let mut v = ((1 << num_set_bits) - 1) << initial_shift;
+    let mut repetitions = left_most_bit / sequence_length;
+    while repetitions > 0 {
+        v = (v >> sequence_length) | (((1 << num_set_bits) - 1) << initial_shift);
+        repetitions -= 1;
+    }
+    v
+}
+
+#[inline]
+pub(crate) const fn undilate_shift<T, const D: UIntX>() -> UIntX {
+    let s = (size_of::<T>() * 8) as UIntX / D;
+    (D * (s - 1) + 1) - s
 }
 
 #[cfg(test)]
@@ -111,73 +131,21 @@ mod tests {
 
     use super::{ilog, UIntX};
 
-    struct TestData<T, const D: usize> {
-        marker: PhantomData<T>,
-    }
-
-    macro_rules! impl_test_data {
-        ($t:ty, $d:literal, $dil_mask:expr, $undil_max:expr) => {
-            impl TestData<$t, $d> {
-                #[inline]
-                fn dilated_mask() -> $t {
-                    ($dil_mask) as $t
-                }
-
-                #[inline]
-                fn undilated_max() -> $t {
-                    ($undil_max) as $t
-                }
-            }
-        };
-    }
-    // (Type, D, dil_mask, undil_max)
-
-    impl_test_data!(u8, 1, 0xff, 0xff);
-    impl_test_data!(u8, 2, 0x55, 0x0f);
-    impl_test_data!(u8, 3, 0x09, 0x03);
-    impl_test_data!(u8, 4, 0x11, 0x03);
-    impl_test_data!(u8, 5, 0x01, 0x01);
-    impl_test_data!(u8, 6, 0x01, 0x01);
-    impl_test_data!(u8, 7, 0x01, 0x01);
-    impl_test_data!(u8, 8, 0x01, 0x01);
-
-    impl_test_data!(u16, 1, 0xffff, 0xffff);
-    impl_test_data!(u16, 2, 0x5555, 0x00ff);
-    impl_test_data!(u16, 3, 0x1249, 0x001f);
-    impl_test_data!(u16, 4, 0x1111, 0x000f);
-    impl_test_data!(u16, 5, 0x0421, 0x0007);
-    impl_test_data!(u16, 6, 0x0041, 0x0003);
-    impl_test_data!(u16, 7, 0x0081, 0x0003);
-    impl_test_data!(u16, 8, 0x0101, 0x0003);
-
-    impl_test_data!(u32, 1, 0xffffffff, 0xffffffff);
-    impl_test_data!(u32, 2, 0x55555555, 0x0000ffff);
-    impl_test_data!(u32, 3, 0x09249249, 0x000003ff);
-    impl_test_data!(u32, 4, 0x11111111, 0x000000ff);
-    impl_test_data!(u32, 5, 0x02108421, 0x0000003f);
-    impl_test_data!(u32, 6, 0x01041041, 0x0000001f);
-    impl_test_data!(u32, 7, 0x00204081, 0x0000000f);
-    impl_test_data!(u32, 8, 0x01010101, 0x0000000f);
-
-    impl_test_data!(u64, 1, 0xffffffffffffffff, 0xffffffffffffffff);
-    impl_test_data!(u64, 2, 0x5555555555555555, 0x00000000ffffffff);
-    impl_test_data!(u64, 3, 0x1249249249249249, 0x00000000001fffff);
-    impl_test_data!(u64, 4, 0x1111111111111111, 0x000000000000ffff);
-    impl_test_data!(u64, 5, 0x0084210842108421, 0x0000000000000fff);
-    impl_test_data!(u64, 6, 0x0041041041041041, 0x00000000000003ff);
-    impl_test_data!(u64, 7, 0x0102040810204081, 0x00000000000001ff);
-    impl_test_data!(u64, 8, 0x0101010101010101, 0x00000000000000ff);
-
     struct DilationTestData<T, const D: usize> {
         marker: PhantomData<T>,
     }
 
     macro_rules! impl_dilation_test_data {
-        ($t:ty, $d:literal, $max_round:expr, $(($round:literal, $mult:literal, $mask:literal)),*) => {
+        ($t:ty, $d:literal, $dil_mask:literal, $num_rounds:literal, $(($round:literal, $mult:literal, $mask:literal)),*) => {
             impl DilationTestData<$t, $d> {
                 #[inline]
-                fn max_round() -> Option<$t> {
-                    $max_round
+                fn dilated_mask() -> $t {
+                    ($dil_mask) as $t
+                }
+                
+                #[inline]
+                fn num_rounds() -> $t {
+                    $num_rounds as $t
                 }
 
                 #[inline]
@@ -190,125 +158,62 @@ mod tests {
 
     // (Type, D, max_round, per round: (round, mult, mask)*)
 
-    impl_dilation_test_data!(u8, 1, None,);
-    impl_dilation_test_data!(u8, 2, None,);
-    impl_dilation_test_data!(u8, 3, Some(1), (0, 0x11, 0xC3), (1, 0x05, 0x49));
-    impl_dilation_test_data!(u8, 4, Some(0), (0, 0x49, 0x11));
-    impl_dilation_test_data!(u8, 5, Some(0), (0, 0x11, 0x21));
-    impl_dilation_test_data!(u8, 6, Some(0), (0, 0x21, 0x41));
-    impl_dilation_test_data!(u8, 7, Some(0), (0, 0x41, 0x81));
-    impl_dilation_test_data!(u8, 8, Some(0), (0, 0x81, 0x01));
+    impl_dilation_test_data!(u8, 1, 0xff, 0,);
+    impl_dilation_test_data!(u8, 2, 0x55, 0,);
+    impl_dilation_test_data!(u8, 3, 0x09, 2, (0, 0x11, 0xC3), (1, 0x05, 0x49));
+    impl_dilation_test_data!(u8, 4, 0x11, 1, (0, 0x49, 0x11));
+    impl_dilation_test_data!(u8, 5, 0x01, 1, (0, 0x11, 0x21));
+    impl_dilation_test_data!(u8, 6, 0x01, 1, (0, 0x21, 0x41));
+    impl_dilation_test_data!(u8, 7, 0x01, 1, (0, 0x41, 0x81));
+    impl_dilation_test_data!(u8, 8, 0x01, 1, (0, 0x81, 0x01));
 
-    impl_dilation_test_data!(u16, 1, None,);
-    impl_dilation_test_data!(u16, 2, None,);
-    impl_dilation_test_data!(
-        u16,
-        3,
-        Some(2),
-        (0, 0x0101, 0xF00F),
-        (1, 0x0011, 0x30C3),
-        (2, 0x0005, 0x9249)
-    );
-    impl_dilation_test_data!(u16, 4, Some(1), (0, 0x0201, 0x7007), (1, 0x0049, 0x1111));
-    impl_dilation_test_data!(u16, 5, Some(0), (0, 0x1111, 0x8421));
-    impl_dilation_test_data!(u16, 6, Some(0), (0, 0x8421, 0x1041));
-    impl_dilation_test_data!(u16, 7, Some(0), (0, 0x1041, 0x4081));
-    impl_dilation_test_data!(u16, 8, Some(0), (0, 0x4081, 0x0101));
+    impl_dilation_test_data!(u16, 1, 0xffff, 0,);
+    impl_dilation_test_data!(u16, 2, 0x5555, 0,);
+    impl_dilation_test_data!(u16, 3, 0x1249, 3, (0, 0x0101, 0xF00F), (1, 0x0011, 0x30C3), (2, 0x0005, 0x9249));
+    impl_dilation_test_data!(u16, 4, 0x1111, 2, (0, 0x0201, 0x7007), (1, 0x0049, 0x1111));
+    impl_dilation_test_data!(u16, 5, 0x0421, 1, (0, 0x1111, 0x8421));
+    impl_dilation_test_data!(u16, 6, 0x0041, 1, (0, 0x8421, 0x1041));
+    impl_dilation_test_data!(u16, 7, 0x0081, 1, (0, 0x1041, 0x4081));
+    impl_dilation_test_data!(u16, 8, 0x0101, 1, (0, 0x4081, 0x0101));
 
-    impl_dilation_test_data!(u32, 1, None,);
-    impl_dilation_test_data!(u32, 2, None,);
-    impl_dilation_test_data!(
-        u32,
-        3,
-        Some(3),
-        (0, 0x00010001, 0xFF0000FF),
-        (1, 0x00000101, 0x0F00F00F),
-        (2, 0x00000011, 0xC30C30C3),
-        (3, 0x00000005, 0x49249249)
-    );
-    impl_dilation_test_data!(
-        u32,
-        4,
-        Some(1),
-        (0, 0x00040201, 0x07007007),
-        (1, 0x00000049, 0x11111111)
-    );
-    impl_dilation_test_data!(
-        u32,
-        5,
-        Some(1),
-        (0, 0x00010001, 0x00f0000f),
-        (1, 0x00001111, 0x42108421)
-    );
-    impl_dilation_test_data!(
-        u32,
-        6,
-        Some(1),
-        (0, 0x02000001, 0xc000001f),
-        (1, 0x00108421, 0x41041041)
-    );
-    impl_dilation_test_data!(u32, 7, Some(0), (0, 0x41041041, 0x10204081));
-    impl_dilation_test_data!(u32, 8, Some(0), (0, 0x10204081, 0x01010101));
+    impl_dilation_test_data!(u32, 1, 0xffffffff, 0,);
+    impl_dilation_test_data!(u32, 2, 0x55555555, 0,);
+    impl_dilation_test_data!(u32, 3, 0x09249249, 4, (0, 0x00010001, 0xFF0000FF), (1, 0x00000101, 0x0F00F00F), (2, 0x00000011, 0xC30C30C3), (3, 0x00000005, 0x49249249));
+    impl_dilation_test_data!(u32, 4, 0x11111111, 2, (0, 0x00040201, 0x07007007), (1, 0x00000049, 0x11111111));
+    impl_dilation_test_data!(u32, 5, 0x02108421, 2, (0, 0x00010001, 0x00f0000f), (1, 0x00001111, 0x42108421));
+    impl_dilation_test_data!(u32, 6, 0x01041041, 2, (0, 0x02000001, 0xc000001f), (1, 0x00108421, 0x41041041));
+    impl_dilation_test_data!(u32, 7, 0x00204081, 1, (0, 0x41041041, 0x10204081));
+    impl_dilation_test_data!(u32, 8, 0x01010101, 1, (0, 0x10204081, 0x01010101));
 
-    impl_dilation_test_data!(u64, 1, None,);
-    impl_dilation_test_data!(u64, 2, None,);
-    impl_dilation_test_data!(
-        u64,
-        3,
-        Some(4),
-        (0, 0x0000000100000001, 0xFFFF00000000FFFF),
-        (1, 0x0000000000010001, 0x00FF0000FF0000FF),
-        (2, 0x0000000000000101, 0xF00F00F00F00F00F),
-        (3, 0x0000000000000011, 0x30C30C30C30C30C3),
-        (4, 0x0000000000000005, 0x9249249249249249)
-    );
-    impl_dilation_test_data!(
-        u64,
-        4,
-        Some(2),
-        (0, 0x0040000008000001, 0x00001ff0000001ff),
-        (1, 0x0000000000040201, 0x7007007007007007),
-        (2, 0x0000000000000049, 0x1111111111111111)
-    );
-    impl_dilation_test_data!(
-        u64,
-        5,
-        Some(1),
-        (0, 0x0001000100010001, 0xf0000f0000f0000f),
-        (1, 0x0000000000001111, 0x1084210842108421)
-    );
-    impl_dilation_test_data!(
-        u64,
-        6,
-        Some(1),
-        (0, 0x0004000002000001, 0xf0000007c000001f),
-        (1, 0x0000000000108421, 0x1041041041041041)
-    );
-    impl_dilation_test_data!(
-        u64,
-        7,
-        Some(1),
-        (0, 0x0000001000000001, 0x0000fc000000003f),
-        (1, 0x0000000041041041, 0x8102040810204081)
-    );
-    impl_dilation_test_data!(
-        u64,
-        8,
-        Some(1),
-        (0, 0x0002000000000001, 0x7f0000000000007f),
-        (1, 0x0000040810204081, 0x0101010101010101)
-    );
+    impl_dilation_test_data!(u64, 1, 0xffffffffffffffff, 0,);
+    impl_dilation_test_data!(u64, 2, 0x5555555555555555, 0,);
+    impl_dilation_test_data!(u64, 3, 0x1249249249249249, 5, (0, 0x0000000100000001, 0xFFFF00000000FFFF), (1, 0x0000000000010001, 0x00FF0000FF0000FF), (2, 0x0000000000000101, 0xF00F00F00F00F00F), (3, 0x0000000000000011, 0x30C30C30C30C30C3), (4, 0x0000000000000005, 0x9249249249249249));
+    impl_dilation_test_data!(u64, 4, 0x1111111111111111, 3, (0, 0x0040000008000001, 0x00001ff0000001ff), (1, 0x0000000000040201, 0x7007007007007007), (2, 0x0000000000000049, 0x1111111111111111));
+    impl_dilation_test_data!(u64, 5, 0x0084210842108421, 2, (0, 0x0001000100010001, 0xf0000f0000f0000f), (1, 0x0000000000001111, 0x1084210842108421));
+    impl_dilation_test_data!(u64, 6, 0x0041041041041041, 2, (0, 0x0004000002000001, 0xf0000007c000001f), (1, 0x0000000000108421, 0x1041041041041041));
+    impl_dilation_test_data!(u64, 7, 0x0102040810204081, 2, (0, 0x0000001000000001, 0x0000fc000000003f), (1, 0x0000000041041041, 0x8102040810204081));
+    impl_dilation_test_data!(u64, 8, 0x0101010101010101, 2, (0, 0x0002000000000001, 0x7f0000000000007f), (1, 0x0000040810204081, 0x0101010101010101));
 
     struct UndilationTestData<T, const D: usize> {
         marker: PhantomData<T>,
     }
 
     macro_rules! impl_undilation_test_data {
-        ($t:ty, $d:literal, $max_round:expr, $(($round:literal, $mult:literal, $mask:literal)),*) => {
+        ($t:ty, $d:literal, $undil_max:literal, $undil_shift:literal, $num_rounds:literal, $(($round:literal, $mult:literal, $mask:literal)),*) => {
             impl UndilationTestData<$t, $d> {
                 #[inline]
-                fn max_round() -> Option<$t> {
-                    $max_round
+                fn undilated_max() -> $t {
+                    ($undil_max) as $t
+                }
+
+                #[inline]
+                fn undilate_shift() -> $t {
+                    ($undil_shift) as $t
+                }
+                
+                #[inline]
+                fn num_rounds() -> $t {
+                    $num_rounds as $t
                 }
 
                 #[inline]
@@ -321,41 +226,41 @@ mod tests {
 
     // (Type, D, max_round, per round: (round, mult, mask)*)
 
-    impl_undilation_test_data!(u8, 1, None,);
-    impl_undilation_test_data!(u8, 2, Some(2), (0, 0x03, 0), (1, 0x05, 0), (2, 0x11, 0));
-    impl_undilation_test_data!(u8, 3, Some(0), (0, 0x15, 0));
-    impl_undilation_test_data!(u8, 4, Some(0), (0, 0x49, 0));
-    impl_undilation_test_data!(u8, 5, Some(0), (0, 0x11, 0));
-    impl_undilation_test_data!(u8, 6, Some(0), (0, 0x21, 0));
-    impl_undilation_test_data!(u8, 7, Some(0), (0, 0x41, 0));
-    impl_undilation_test_data!(u8, 8, Some(0), (0, 0x81, 0));
+    impl_undilation_test_data!(u8, 1, 0xff, 0, 0,);
+    impl_undilation_test_data!(u8, 2, 0x0f, 3, 3, (0, 0x03, 0x66), (1, 0x05, 0x78), (2, 0x11, 0x7F));
+    impl_undilation_test_data!(u8, 3, 0x03, 2, 1, (0, 0x15, 0x0e));
+    impl_undilation_test_data!(u8, 4, 0x03, 3, 1, (0, 0x49, 0x1e));
+    impl_undilation_test_data!(u8, 5, 0x01, 0, 1, (0, 0x11, 0x01));
+    impl_undilation_test_data!(u8, 6, 0x01, 0, 1, (0, 0x21, 0x01));
+    impl_undilation_test_data!(u8, 7, 0x01, 0, 1, (0, 0x41, 0x01));
+    impl_undilation_test_data!(u8, 8, 0x01, 0, 1, (0, 0x81, 0x01));
 
-    impl_undilation_test_data!(u16, 1, None,);
-    impl_undilation_test_data!(u16, 2, Some(3), (0, 0x0003, 0), (1, 0x0005, 0), (2, 0x0011, 0), (3, 0x0101, 0));
-    impl_undilation_test_data!(u16, 3, Some(1), (0, 0x0015, 0), (1, 0x1041, 0));
-    impl_undilation_test_data!(u16, 4, Some(1), (0, 0x0249, 0), (1, 0x1001, 0));
-    impl_undilation_test_data!(u16, 5, Some(0), (0, 0x1111, 0));
-    impl_undilation_test_data!(u16, 6, Some(0), (0, 0x8421, 0));
-    impl_undilation_test_data!(u16, 7, Some(0), (0, 0x1041, 0));
-    impl_undilation_test_data!(u16, 8, Some(0), (0, 0x4081, 0));
+    impl_undilation_test_data!(u16, 1, 0xffff, 0, 0,);
+    impl_undilation_test_data!(u16, 2, 0x00ff, 7, 4, (0, 0x0003, 0x6666), (1, 0x0005, 0x7878), (2, 0x0011, 0x7f80), (3, 0x0101, 0x7fff));
+    impl_undilation_test_data!(u16, 3, 0x001f, 8, 2, (0, 0x0015, 0x1c0e), (1, 0x1041, 0x1ff0));
+    impl_undilation_test_data!(u16, 4, 0x000f, 9, 2, (0, 0x0249, 0x1e00), (1, 0x1001, 0x1fff));
+    impl_undilation_test_data!(u16, 5, 0x0007, 8, 1, (0, 0x1111, 0x07c0));
+    impl_undilation_test_data!(u16, 6, 0x0003, 5, 1, (0, 0x8421, 0x007e));
+    impl_undilation_test_data!(u16, 7, 0x0003, 6, 1, (0, 0x1041, 0x00fe));
+    impl_undilation_test_data!(u16, 8, 0x0003, 7, 1, (0, 0x4081, 0x01fe));
 
-    impl_undilation_test_data!(u32, 1, None,);
-    impl_undilation_test_data!(u32, 2, Some(4), (0, 0x00000003, 0), (1, 0x00000005, 0), (2, 0x00000011, 0), (3, 0x00000101, 0), (4, 0x00010001, 0));
-    impl_undilation_test_data!(u32, 3, Some(2), (0, 0x00000015, 0), (1, 0x00001041, 0), (2, 0x00040001, 0));
-    impl_undilation_test_data!(u32, 4, Some(1), (0, 0x00000249, 0), (1, 0x1001001, 0));
-    impl_undilation_test_data!(u32, 5, Some(1), (0, 0x00011111, 0), (1, 0x100001, 0));
-    impl_undilation_test_data!(u32, 6, Some(0), (0, 0x02108421, 0));
-    impl_undilation_test_data!(u32, 7, Some(0), (0, 0x41041041, 0));
-    impl_undilation_test_data!(u32, 8, Some(0), (0, 0x10204081, 0));
+    impl_undilation_test_data!(u32, 1, 0xffffffff, 0, 0,);
+    impl_undilation_test_data!(u32, 2, 0x0000ffff, 15, 5, (0, 0x00000003, 0x66666666), (1, 0x00000005, 0x78787878), (2, 0x00000011, 0x7F807F80), (3, 0x00000101, 0x7FFF8000), (4, 0x00010001, 0x7fffffff));
+    impl_undilation_test_data!(u32, 3, 0x000003ff, 18, 3, (0, 0x00000015, 0x0E070381), (1, 0x00001041, 0x0FF80001), (2, 0x00040001, 0x0FFFFFFE));
+    impl_undilation_test_data!(u32, 4, 0x000000ff, 21, 2, (0, 0x00000249, 0x1e001e00), (1, 0x01001001, 0x1fffe000));
+    impl_undilation_test_data!(u32, 5, 0x0000003f, 20, 2, (0, 0x00011111, 0x03e00001), (1, 0x00100001, 0x03fffffe));
+    impl_undilation_test_data!(u32, 6, 0x0000001f, 20, 1, (0, 0x02108421, 0x01f80000));
+    impl_undilation_test_data!(u32, 7, 0x0000000f, 18, 1, (0, 0x41041041, 0x003f8000));
+    impl_undilation_test_data!(u32, 8, 0x0000000f, 21, 1, (0, 0x10204081, 0x01fe0000));
 
-    impl_undilation_test_data!(u64, 1, None,);
-    impl_undilation_test_data!(u64, 2, Some(5), (0, 0x0000000000000003, 0), (1, 0x0000000000000005, 0), (2, 0x0000000000000011, 0), (3, 0x0000000000000101, 0), (4, 0x0000000000010001, 0), (5, 0x0000000100000001, 0));
-    impl_undilation_test_data!(u64, 3, Some(2), (0, 0x0000000000000015, 0), (1, 0x0000000000001041, 0), (2, 0x0000001000040001, 0));
-    impl_undilation_test_data!(u64, 4, Some(2), (0, 0x0000000000000249, 0), (1, 0x0000001001001001, 0), (2, 0x0001000000000001, 0));
-    impl_undilation_test_data!(u64, 5, Some(1), (0, 0x0000000000011111, 0), (1, 0x1000010000100001, 0));
-    impl_undilation_test_data!(u64, 6, Some(1), (0, 0x0000000002108421, 0), (1, 0x1000000040000001, 0));
-    impl_undilation_test_data!(u64, 7, Some(1), (0, 0x0000001041041041, 0), (1, 0x0000040000000001, 0));
-    impl_undilation_test_data!(u64, 8, Some(1), (0, 0x0002040810204081, 0), (1, 0x0100000000000001, 0));
+    impl_undilation_test_data!(u64, 1, 0xffffffffffffffff, 0, 0,);
+    impl_undilation_test_data!(u64, 2, 0x00000000ffffffff, 31, 6, (0, 0x0000000000000003, 0x6666666666666666), (1, 0x0000000000000005, 0x7878787878787878), (2, 0x0000000000000011, 0x7F807F807F807F80), (3, 0x0000000000000101, 0x7FFF80007FFF8000), (4, 0x0000000000010001, 0x7FFFFFFF80000000), (5, 0x0000000100000001, 0x7fffffffffffffff));
+    impl_undilation_test_data!(u64, 3, 0x00000000001fffff, 40, 3, (0, 0x0000000000000015, 0x1c0e070381c0e070), (1, 0x0000000000001041, 0x1ff00003fe00007f), (2, 0x0000001000040001, 0x1ffffffc00000000));
+    impl_undilation_test_data!(u64, 4, 0x000000000000ffff, 45, 3, (0, 0x0000000000000249, 0x1e001e001e001e00), (1, 0x0000001001001001, 0x1fffe00000000000), (2, 0x0001000000000001, 0x1fffffffffffffff));
+    impl_undilation_test_data!(u64, 5, 0x0000000000000fff, 44, 2, (0, 0x0000000000011111, 0x00f800007c00003e), (1, 0x1000010000100001, 0x00ffffff80000000));
+    impl_undilation_test_data!(u64, 6, 0x00000000000003ff, 45, 2, (0, 0x0000000002108421, 0x007e00000007e000), (1, 0x1000000040000001, 0x007ffffffff80000));
+    impl_undilation_test_data!(u64, 7, 0x00000000000001ff, 48, 2, (0, 0x0000001041041041, 0x01fc0000000000fe), (1, 0x0000040000000001, 0x01ffffffffffff00));
+    impl_undilation_test_data!(u64, 8, 0x00000000000000ff, 49, 2, (0, 0x0002040810204081, 0x01fe000000000000), (1, 0x0100000000000001, 0x01ffffffffffffff));
 
     #[test]
     fn ilog_is_correct() {
@@ -383,53 +288,71 @@ mod tests {
             paste! {
                 mod [< $t _d $d >] {
                     use std::mem::size_of;
-                    use super::{TestData, DilationTestData, UndilationTestData};
-                    use super::super::{UIntX, build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult};
+                    use super::{DilationTestData, UndilationTestData};
+                    use super::super::{UIntX, build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult, undilate_mask, undilate_shift};
 
                     #[test]
-                    fn dilated_mask_correct() {
-                        assert_eq!(build_dilated_mask((size_of::<$t>() * 8 / $d) as UIntX, $d as UIntX) as $t, TestData::<$t, $d>::dilated_mask());
-                    }
-
-                    #[test]
-                    fn undilated_max_correct() {
-                        assert_eq!(build_undilated_max::<$t, $d>() as $t, TestData::<$t, $d>::undilated_max());
+                    fn dilated_mask_is_correct() {
+                        assert_eq!(build_dilated_mask((size_of::<$t>() * 8 / $d) as UIntX, $d as UIntX) as $t, DilationTestData::<$t, $d>::dilated_mask());
                     }
 
                     #[test]
                     fn dilate_max_round_is_correct() {
-                        if let Some(expect_max_round) = DilationTestData::<$t, $d>::max_round() {
-                            assert_eq!(dilate_max_round::<$t, $d>() as $t, expect_max_round);
+                        let expect_num_rounds = DilationTestData::<$t, $d>::num_rounds();
+                        if expect_num_rounds > 0 {
+                            assert_eq!(dilate_max_round::<$t, $d>() as $t, expect_num_rounds - 1);
                         }
                     }
 
                     #[test]
-                    fn dilate_mult_and_mask_are_correct() {
-                        for (round, mult, mask) in DilationTestData::<$t, $d>::test_cases() {
+                    fn dilate_mult_is_correct() {
+                        for (round, mult, _) in DilationTestData::<$t, $d>::test_cases() {
                             assert_eq!(dilate_mult::<$t, $d>(round as UIntX) as $t, mult);
+                        }
+                    }
+
+                    #[test]
+                    fn dilate_mask_is_correct() {
+                        for (round, _, mask) in DilationTestData::<$t, $d>::test_cases() {
                             assert_eq!(dilate_mask::<$t, $d>(round as UIntX) as $t, mask);
                         }
                     }
 
                     #[test]
+                    fn undilated_max_is_correct() {
+                        assert_eq!(build_undilated_max::<$t, $d>() as $t, UndilationTestData::<$t, $d>::undilated_max());
+                    }
+
+                    #[test]
                     fn undilate_max_round_is_correct() {
-                        if let Some(expect_max_round) = UndilationTestData::<$t, $d>::max_round() {
-                            assert_eq!(undilate_max_round::<$t, $d>() as $t, expect_max_round);
+                        let expect_num_rounds = UndilationTestData::<$t, $d>::num_rounds();
+                        if expect_num_rounds > 0 {
+                            assert_eq!(undilate_max_round::<$t, $d>() as $t, expect_num_rounds - 1);
                         }
                     }
 
                     #[test]
-                    fn undilate_mult_and_mask_are_correct() {
-                        for (round, mult, mask) in UndilationTestData::<$t, $d>::test_cases() {
+                    fn undilate_mult_is_correct() {
+                        for (round, mult, _) in UndilationTestData::<$t, $d>::test_cases() {
                             assert_eq!(undilate_mult::<$t, $d>(round as UIntX) as $t, mult);
-//                            assert_eq!(dilate_mask::<$t, $d>(round as UIntX) as $t, mask);
                         }
+                    }
+
+                    #[test]
+                    fn undilate_mask_is_correct() {
+                        for (round, _, mask) in UndilationTestData::<$t, $d>::test_cases() {
+                            assert_eq!(undilate_mask::<$t, $d>(round as UIntX) as $t, mask);
+                        }
+                    }
+
+                    #[test]
+                    fn undilate_shift_is_correct() {
+                        assert_eq!(undilate_shift::<$t, $d>() as $t, UndilationTestData::<$t, $d>::undilate_shift());
                     }
                 }
             }
         )+}
     }
-
     const_generation_tests!(u8, 1, 2, 3, 4, 5, 6, 7, 8);
     const_generation_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
     const_generation_tests!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
