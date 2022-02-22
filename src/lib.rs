@@ -12,7 +12,10 @@
 // By: Michael D Adams and David S Wise
 // Permission has been granted to reproduce the agorithms within this paper
 
-use std::mem::size_of;
+mod const_generation;
+
+use std::{num::Wrapping, mem::size_of};
+use const_generation::{build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, UIntX};
 
 // NOTE Until we have stable specialization, D is limited to 1-8
 #[derive(Clone, Copy, Default, Debug)]
@@ -24,34 +27,12 @@ pub trait DilatedMask<T> {
     fn dilated_mask() -> T;
 }
 
-#[cfg(not(has_i128))]
-const fn build_dilated_mask<const D: usize>() -> u64 {
-    let mut s = size_of::<u64>() * 8 / D;
-    let mut v = 0u64;
-    while s > 0 {
-        v = (v << D) | 1;
-        s -= 1;
-    }
-    v
-}
-
-#[cfg(has_i128)]
-const fn build_dilated_mask<const D: usize>() -> u128 {
-    let mut s = size_of::<u128>() * 8 / D;
-    let mut v = 0u128;
-    while s > 0 {
-        v = (v << D) | 1;
-        s -= 1;
-    }
-    v
-}
-
 macro_rules! dilated_int_mask_impls {
     ($($t:ty),+) => {$(
         impl<const D: usize> DilatedMask<$t> for DilatedInt<$t, D> {
             #[inline]
             fn dilated_mask() -> $t {
-                build_dilated_mask::<D>() as $t
+                build_dilated_mask((size_of::<$t>() * 8 / D) as UIntX, D as UIntX) as $t
             }
         }
     )+}
@@ -63,30 +44,6 @@ dilated_int_mask_impls!(u128);
 // Undilated maximum value trait
 pub trait UndilatedMax<T> {
     fn undilated_max() -> T;
-}
-
-#[cfg(not(has_i128))]
-const fn build_undilated_max<T, const D: usize>() -> u64 {
-    let bits_available = size_of::<T>() * 8;
-    let mut s = bits_available / D;
-    let mut v = 0u64;
-    while s > 0 {
-        v = (v << 1) | 1;
-        s -= 1;
-    }
-    v
-}
-
-#[cfg(has_i128)]
-const fn build_undilated_max<T, const D: usize>() -> u128 {
-    let bits_available = size_of::<T>() * 8;
-    let mut s = bits_available / D;
-    let mut v = 0u128;
-    while s > 0 {
-        v = (v << 1) | 1;
-        s -= 1;
-    }
-    v
 }
 
 macro_rules! dilated_int_undilated_max_impls {
@@ -125,7 +82,7 @@ macro_rules! dilated_int_d1_from_impls {
         }
     )+}
 }
-dilated_int_d1_from_impls!(u8, u16, u32, u64, usize);
+dilated_int_d1_from_impls!(u8, u16, u32, u64);
 #[cfg(has_i128)]
 dilated_int_d1_from_impls!(u128);
 
@@ -444,17 +401,6 @@ impl From<DilatedInt<u128, 3>> for u128 {
     }
 }
 
-/*
-const fn x<T>(p: T, q: T) -> T {
-    let mut p = p;
-    let mut v = 0;
-    while p > 0 {
-        v += 1 << (p * q);
-        p -= 1;
-    }
-    v
-}*/
-
 // ============================================================================
 // Implement From for DN dilated integers
 // Until we have stable specialization, this must be implemented manually
@@ -467,14 +413,12 @@ macro_rules! dilated_int_dn_from_impls {
                 // output integer size would depend on the number of dimensions
                 debug_assert!(value <= Self::undilated_max(), "Paremeter 'value' exceeds maximum");
 
-                let mut v = value;
-//                let s = size_of::<T>() * 8 / ($d - 1);
-//                for i in 1..s;
-
-//                for i in (s - 1)..=0 {
-//                    v | (v << (1 << i))
-//                }
-                Self(v)
+                let mut v = Wrapping(value);
+                for i in 0..=dilate_max_round::<$t, $d>() {
+                    v = (v * Wrapping(dilate_mult::<$t, $d>(i) as $t)) & Wrapping(dilate_mask::<$t, $d>(i) as $t);
+                }
+                
+                Self(v.0)
             }
         }
 
@@ -514,70 +458,42 @@ macro_rules! dilated_int_usize_from_impls {
     )+}
 }
 
-// D 1 case handled separately
 // Bootstrap usize (16 bit) for any number of dimensions
 #[cfg(target_pointer_width = "16")]
-dilated_int_usize_from_impls!(u16, 2, 3, 4, 5, 6, 7, 8);
+dilated_int_usize_from_impls!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
 
 // Bootstrap usize (32 bit) for any number of dimensions
 #[cfg(target_pointer_width = "32")]
-dilated_int_usize_from_impls!(u32, 2, 3, 4, 5, 6, 7, 8);
+dilated_int_usize_from_impls!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
 
 // Bootstrap usize (64 bit) for any number of dimensions
 #[cfg(target_pointer_width = "64")]
-dilated_int_usize_from_impls!(u64, 2, 3, 4, 5, 6, 7, 8);
-
+dilated_int_usize_from_impls!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
 
 // ============================================================================
 // Inner helper functions
 
-#[cfg(not(has_i128))]
-type BigUInt = u64;
-#[cfg(has_i128)]
-type BigUInt = u128;
-
-// Int log is not yet stable
-// https://github.com/rust-lang/rust/issues/70887
-const fn ilog(base: BigUInt, n: BigUInt) -> BigUInt {
-    let mut r = 0;
-    let mut b = base;
-    while b <= n {
-        b = b * base;
-        r += 1;
-    }
-    r
-}
-
-const fn build_dilate_mult_const<const D: BigUInt>(bits_available: BigUInt, round: BigUInt) -> BigUInt {
-    let s = bits_available / D;
-    let max_round = ilog(D - 1, s) - 1;
-    let num_blank_bits = (D - 1).pow((max_round - (round + 1)) as u32);
-    (0x1 << num_blank_bits) | 0x1
-}
-
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use std::{marker::PhantomData, num::Wrapping};
 
     use lazy_static::lazy_static;
     use paste::paste;
 
-    #[test]
-    fn test_ilog() {
-        use super::ilog;
-        for d in 2u32..8u32 {
-            // Don't test too many values of i as we may bump up against floating point error
-            for i in 1u32..64u32 {
-                assert_eq!(ilog(d, i), (i as f32).log(d as f32) as u64);
-            }
-        }
-    }
+    use crate::{DilatedInt, const_generation::{dilate_max_round, dilate_mult, dilate_mask}};
 
     #[test]
-    fn test_build_dilate_mult_const() {
-        use super::build_dilate_mult_const;
-        assert_eq!(build_dilate_mult_const::<u8, 3>(0), 0x11);
-        assert_eq!(build_dilate_mult_const::<u8, 3>(1), 0x05);
+    fn test() {
+        println!("0b1101 dilated: 0b{:b}", DilatedInt::<u32, 8>::from(0b1101).0);
+        assert_eq!(DilatedInt::<u32, 8>::from(0b1101).0, 0b1000000010000000000000001);
+
+//        let mut v = Wrapping(0b1101u16);
+//        for i in 0..=dilate_max_round::<u16, 4>() {
+//            println!("i = {i}, v = 0b{:b}, mult = 0b{:b}, mask = 0b{:b}", v, dilate_mult::<u16, 4>(i) as u16, dilate_mask::<u16, 4>(i) as u16);
+//            v = (v * Wrapping(dilate_mult::<u16, 4>(i) as u16)) & Wrapping(dilate_mask::<u16, 4>(i) as u16);
+//        }
+//
+//        println!("v_end = 0b{v:b}");
     }
 
     struct DilMaskTestData<T, const D: usize> {
@@ -596,29 +512,29 @@ mod tests {
     }
     impl_dil_mask!(u8, 1, 0xff);
     impl_dil_mask!(u8, 2, 0x55);
-    impl_dil_mask!(u8, 3, 0x49);
+    impl_dil_mask!(u8, 3, 0x09);
     impl_dil_mask!(u8, 4, 0x11);
-    impl_dil_mask!(u8, 5, 0x21);
-    impl_dil_mask!(u8, 6, 0x41);
-    impl_dil_mask!(u8, 7, 0x81);
+    impl_dil_mask!(u8, 5, 0x01);
+    impl_dil_mask!(u8, 6, 0x01);
+    impl_dil_mask!(u8, 7, 0x01);
     impl_dil_mask!(u8, 8, 0x01);
 
     impl_dil_mask!(u16, 1, 0xffff);
     impl_dil_mask!(u16, 2, 0x5555);
-    impl_dil_mask!(u16, 3, 0x9249);
+    impl_dil_mask!(u16, 3, 0x1249);
     impl_dil_mask!(u16, 4, 0x1111);
-    impl_dil_mask!(u16, 5, 0x8421);
-    impl_dil_mask!(u16, 6, 0x1041);
-    impl_dil_mask!(u16, 7, 0x4081);
+    impl_dil_mask!(u16, 5, 0x0421);
+    impl_dil_mask!(u16, 6, 0x0041);
+    impl_dil_mask!(u16, 7, 0x0081);
     impl_dil_mask!(u16, 8, 0x0101);
 
     impl_dil_mask!(u32, 1, 0xffffffff);
     impl_dil_mask!(u32, 2, 0x55555555);
-    impl_dil_mask!(u32, 3, 0x49249249);
+    impl_dil_mask!(u32, 3, 0x09249249);
     impl_dil_mask!(u32, 4, 0x11111111);
-    impl_dil_mask!(u32, 5, 0x42108421);
-    impl_dil_mask!(u32, 6, 0x41041041);
-    impl_dil_mask!(u32, 7, 0x10204081);
+    impl_dil_mask!(u32, 5, 0x02108421);
+    impl_dil_mask!(u32, 6, 0x01041041);
+    impl_dil_mask!(u32, 7, 0x00204081);
     impl_dil_mask!(u32, 8, 0x01010101);
 
     impl_dil_mask!(u64, 1, 0xffffffffffffffff);
