@@ -23,6 +23,9 @@ This library provides efficient casting to and from ordinary integer representat
 # Docs
 TODO
 
+# Roadmap
+Please refer to the Roadmap to V1.0 discussion.
+
 # Contributing
 Contributions are most welcome.
 
