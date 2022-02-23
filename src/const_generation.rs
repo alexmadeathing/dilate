@@ -38,15 +38,11 @@ use std::mem::size_of;
 // For most const operations, we will use the largest available integer
 // This assumption avoids the necessity to implement multiple versions of each of the following const functions
 // Instantiations of each const function can therefore safely blind cast to the appropriate type
-#[cfg(not(has_i128))]
-pub(crate) type UIntX = u64;
-#[cfg(has_i128)]
-pub(crate) type UIntX = u128;
 
 // Int log is not yet stable, so we need our own version
 // See: https://github.com/rust-lang/rust/issues/70887
 // NOTE - Does not check for parameter validity because the use cases are limited and it's not exposed to the user
-const fn ilog(base: UIntX, n: UIntX) -> UIntX {
+const fn ilog(base: u128, n: u128) -> u128 {
     let mut r = 0;
     let mut b = base;
     while b <= n {
@@ -59,7 +55,7 @@ const fn ilog(base: UIntX, n: UIntX) -> UIntX {
 // Builds a dilated mask with p repetitions of 1 bits separated by (q - 1) 0 bits
 // See Notation 4.2 in citation [1]
 #[inline]
-pub(crate) const fn build_dilated_mask(p: UIntX, q: UIntX) -> UIntX {
+pub(crate) const fn build_dilated_mask(p: u128, q: u128) -> u128 {
     let mut r = p;
     let mut v = 0;
     while r > 0 {
@@ -71,11 +67,12 @@ pub(crate) const fn build_dilated_mask(p: UIntX, q: UIntX) -> UIntX {
 
 // Calculates the maximum undilated value that fits into D-dilated T
 #[inline]
-pub(crate) const fn build_undilated_max<T, const D: usize>() -> UIntX {
+pub(crate) const fn build_undilated_max<T, const D: usize>() -> u128 {
     let bits_available = size_of::<T>() * 8;
     let s_minus_1 = bits_available / D - 1;
 
     // By shifting in two phases like this, we can avoid overflow in case of D1
+    // NOTE - We can't just use Wrapping because this is a const fn
     let partial_max = (1 << s_minus_1) - 1;
     (partial_max << 1) | 0x1
 }
@@ -83,15 +80,15 @@ pub(crate) const fn build_undilated_max<T, const D: usize>() -> UIntX {
 // Calculates the maximum D-dilation round (total number of D-dilation rounds minus one)
 // See Algorithm 9 in citation [1]
 #[inline]
-pub(crate) const fn dilate_max_round<T, const D: UIntX>() -> UIntX {
-    let s = (size_of::<T>() * 8) as UIntX / D;
+pub(crate) const fn dilate_max_round<T, const D: u128>() -> u128 {
+    let s = (size_of::<T>() * 8) as u128 / D;
     ilog(D - 1, s)
 }
 
 // Calculates the D-dilation multiplier for each round
 // See section IV.D in citation [1]
 #[inline]
-pub(crate) const fn dilate_mult<T, const D: UIntX>(round: UIntX) -> UIntX {
+pub(crate) const fn dilate_mult<T, const D: u128>(round: u128) -> u128 {
     let round_inv = dilate_max_round::<T, D>() - round;
     build_dilated_mask(D - 1, (D - 1).pow(round_inv as u32 + 1))
 }
@@ -99,12 +96,12 @@ pub(crate) const fn dilate_mult<T, const D: UIntX>(round: UIntX) -> UIntX {
 // Calculates the D-dilation mask for each round
 // See section IV.D in citation [1]
 #[inline]
-pub(crate) const fn dilate_mask<T, const D: UIntX>(round: UIntX) -> UIntX {
+pub(crate) const fn dilate_mask<T, const D: u128>(round: u128) -> u128 {
     let round_inv = dilate_max_round::<T, D>() - round;
     let num_set_bits = (D - 1).pow(round_inv as u32);
     let num_blank_bits = (D - 1).pow(round_inv as u32 + 1);
     let sequence_length = num_set_bits + num_blank_bits;
-    let mut repetitions = (size_of::<T>() * 8) as UIntX / sequence_length + 1;
+    let mut repetitions = (size_of::<T>() * 8) as u128 / sequence_length + 1;
 
     let mut v = 0;
     while repetitions > 0 {
@@ -117,23 +114,23 @@ pub(crate) const fn dilate_mask<T, const D: UIntX>(round: UIntX) -> UIntX {
 // Calculates the maximum D-undilation round (total number of D-undilation rounds minus one)
 // See Algorithm 10 in citation [1]
 #[inline]
-pub(crate) const fn undilate_max_round<T, const D: UIntX>() -> UIntX {
-    let s = (size_of::<T>() * 8) as UIntX / D;
+pub(crate) const fn undilate_max_round<T, const D: u128>() -> u128 {
+    let s = (size_of::<T>() * 8) as u128 / D;
     ilog(D, s)
 }
 
 // Calculates the D-undilation multiplier for each round
 // See section IV.D in citation [1]
 #[inline]
-pub(crate) const fn undilate_mult<T, const D: UIntX>(round: UIntX) -> UIntX {
+pub(crate) const fn undilate_mult<T, const D: u128>(round: u128) -> u128 {
     build_dilated_mask(D, D.pow(round as u32) * (D - 1))
 }
 
 // Calculates the D-undilation mask for each round
 // See section IV.D in citation [1]
 #[inline]
-pub(crate) const fn undilate_mask<T, const D: UIntX>(round: UIntX) -> UIntX {
-    let s = (size_of::<T>() * 8) as UIntX / D;
+pub(crate) const fn undilate_mask<T, const D: u128>(round: u128) -> u128 {
+    let s = (size_of::<T>() * 8) as u128 / D;
     let num_blank_bits = D.pow(round as u32 + 1) * (D - 1);
     let num_set_bits = D.pow(round as u32 + 1);
 
@@ -154,8 +151,8 @@ pub(crate) const fn undilate_mask<T, const D: UIntX>(round: UIntX) -> UIntX {
 }
 
 #[inline]
-pub(crate) const fn undilate_shift<T, const D: UIntX>() -> UIntX {
-    let s = (size_of::<T>() * 8) as UIntX / D;
+pub(crate) const fn undilate_shift<T, const D: u128>() -> u128 {
+    let s = (size_of::<T>() * 8) as u128 / D;
     (D * (s - 1) + 1) - s
 }
 
@@ -164,7 +161,7 @@ mod tests {
     use paste::paste;
     use std::marker::PhantomData;
 
-    use super::{ilog, UIntX};
+    use super::ilog;
 
     struct DilationTestData<T, const D: usize> {
         marker: PhantomData<T>,
@@ -184,7 +181,7 @@ mod tests {
                 }
 
                 #[inline]
-                fn test_cases() -> Vec<(UIntX, $t, $t)> {
+                fn test_cases() -> Vec<(u128, $t, $t)> {
                     vec![$(($round, $mult as $t, $mask as $t)),*]
                 }
             }
@@ -229,6 +226,15 @@ mod tests {
     impl_dilation_test_data!(u64, 7, 0x0102040810204081, 2, (0, 0x0000001000000001, 0x0000fc000000003f), (1, 0x0000000041041041, 0x8102040810204081));
     impl_dilation_test_data!(u64, 8, 0x0101010101010101, 2, (0, 0x0002000000000001, 0x7f0000000000007f), (1, 0x0000040810204081, 0x0101010101010101));
 
+    impl_dilation_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff, 0,);
+    impl_dilation_test_data!(u128, 2, 0x55555555555555555555555555555555, 0,);
+    impl_dilation_test_data!(u128, 3, 0x09249249249249249249249249249249, 6, (0, 0x00000000000000010000000000000001, 0xffffffff0000000000000000ffffffff), (1, 0x00000000000000000000000100000001, 0x0000ffff00000000ffff00000000ffff), (2, 0x00000000000000000000000000010001, 0xff0000ff0000ff0000ff0000ff0000ff), (3, 0x00000000000000000000000000000101, 0x0f00f00f00f00f00f00f00f00f00f00f), (4, 0x00000000000000000000000000000011, 0xc30c30c30c30c30c30c30c30c30c30c3), (5, 0x00000000000000000000000000000005, 0x49249249249249249249249249249249));
+    impl_dilation_test_data!(u128, 4, 0x11111111111111111111111111111111, 4, (0, 0x00000000000200000000000000000001, 0xfffff000000000000000000007ffffff), (1, 0x00000000000000000040000008000001, 0x001ff0000001ff0000001ff0000001ff), (2, 0x00000000000000000000000000040201, 0x07007007007007007007007007007007), (3, 0x00000000000000000000000000000049, 0x11111111111111111111111111111111));
+    impl_dilation_test_data!(u128, 5, 0x01084210842108421084210842108421, 3, (0, 0x00000000000000010000000000000001, 0x00000000ffff0000000000000000ffff), (1, 0x00000000000000000001000100010001, 0x0f0000f0000f0000f0000f0000f0000f), (2, 0x00000000000000000000000000001111, 0x21084210842108421084210842108421));
+    impl_dilation_test_data!(u128, 6, 0x01041041041041041041041041041041, 2, (0, 0x00000010000008000004000002000001, 0x1f0000007c000001f0000007c000001f), (1, 0x00000000000000000000000000108421, 0x41041041041041041041041041041041));
+    impl_dilation_test_data!(u128, 7, 0x00810204081020408102040810204081, 2, (0, 0x00001000000001000000001000000001, 0xc000000003f000000000fc000000003f), (1, 0x00000000000000000000000041041041, 0x40810204081020408102040810204081));
+    impl_dilation_test_data!(u128, 8, 0x01010101010101010101010101010101, 2, (0, 0x00000004000000000002000000000001, 0x007f0000000000007f0000000000007f), (1, 0x00000000000000000000040810204081, 0x01010101010101010101010101010101));
+
     struct UndilationTestData<T, const D: usize> {
         marker: PhantomData<T>,
     }
@@ -252,7 +258,7 @@ mod tests {
                 }
 
                 #[inline]
-                fn test_cases() -> Vec<(UIntX, $t, $t)> {
+                fn test_cases() -> Vec<(u128, $t, $t)> {
                     vec![$(($round, $mult as $t, $mask as $t)),*]
                 }
             }
@@ -296,24 +302,33 @@ mod tests {
     impl_undilation_test_data!(u64, 6, 0x00000000000003ff, 45, 2, (0, 0x0000000002108421, 0x007e00000007e000), (1, 0x1000000040000001, 0x007ffffffff80000));
     impl_undilation_test_data!(u64, 7, 0x00000000000001ff, 48, 2, (0, 0x0000001041041041, 0x01fc0000000000fe), (1, 0x0000040000000001, 0x01ffffffffffff00));
     impl_undilation_test_data!(u64, 8, 0x00000000000000ff, 49, 2, (0, 0x0002040810204081, 0x01fe000000000000), (1, 0x0100000000000001, 0x01ffffffffffffff));
+    
+    impl_undilation_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff, 0,   0,);
+    impl_undilation_test_data!(u128, 2, 0x0000000000000000ffffffffffffffff, 63,  7, (0, 0x00000000000000000000000000000003, 0x66666666666666666666666666666666), (1, 0x00000000000000000000000000000005, 0x78787878787878787878787878787878), (2, 0x00000000000000000000000000000011, 0x7f807f807f807f807f807f807f807f80), (3, 0x00000000000000000000000000000101, 0x7fff80007fff80007fff80007fff8000), (4, 0x00000000000000000000000000010001, 0x7fffffff800000007fffffff80000000), (5, 0x00000000000000000000000100000001, 0x7fffffffffffffff8000000000000000), (6, 0x00000000000000010000000000000001, 0x7fffffffffffffffffffffffffffffff));
+    impl_undilation_test_data!(u128, 3, 0x0000000000000000000003ffffffffff, 82,  4, (0, 0x00000000000000000000000000000015, 0x0e070381c0e070381c0e070381c0e070), (1, 0x00000000000000000000000000001041, 0x0ff80001ff00003fe00007fc0000ff80), (2, 0x00000000000000000000001000040001, 0x0ffffffe00000000000007ffffff0000), (3, 0x00001000000000000040000000000001, 0x0ffffffffffffffffffff80000000000));
+    impl_undilation_test_data!(u128, 4, 0x000000000000000000000000ffffffff, 93,  3, (0, 0x00000000000000000000000000000249, 0x1e001e001e001e001e001e001e001e00), (1, 0x00000000000000000000001001001001, 0x1fffe000000000001fffe00000000000), (2, 0x00000001000000000001000000000001, 0x1fffffffffffffffe000000000000000));
+    impl_undilation_test_data!(u128, 5, 0x00000000000000000000000001ffffff, 96,  3, (0, 0x00000000000000000000000000011111, 0x01f00000f800007c00003e00001f0000), (1, 0x00000000000100001000010000100001, 0x01ffffff000000000000000000000000), (2, 0x00000010000000000000000000000001, 0x01ffffffffffffffffffffffffffffff));
+    impl_undilation_test_data!(u128, 6, 0x000000000000000000000000001fffff, 100, 2, (0, 0x00000000000000000000000002108421, 0x01f80000001f80000001f80000001f80), (1, 0x01000000040000001000000040000001, 0x01ffffffffe000000000000000000000));
+    impl_undilation_test_data!(u128, 7, 0x0000000000000000000000000003ffff, 102, 2, (0, 0x00000000000000000000001041041041, 0x00fe00000000007f00000000003f8000), (1, 0x40000000001000000000040000000001, 0x00ffffffffffff800000000000000000));
+    impl_undilation_test_data!(u128, 8, 0x0000000000000000000000000000ffff, 105, 2, (0, 0x00000000000000000002040810204081, 0x01fe00000000000001fe000000000000), (1, 0x00010000000000000100000000000001, 0x01fffffffffffffffe00000000000000));
 
     #[test]
     fn ilog_is_correct() {
-        for d in 2..8 as UIntX {
+        for d in 2..8 as u128 {
             // Don't test too many values of i as we may bump up against floating point error
-            for i in 1..64 as UIntX {
+            for i in 1..64 as u128 {
                 let f_log = (i as f32).log(d as f32);
 
                 // To address possible floating point error:
                 //   - Detect the case where f_log is very close to, but slightly below, the actual target value
-                //   - Bump it up by a small amount to force the cast to UIntX to be accurate
+                //   - Bump it up by a small amount to force the cast to u128 to be accurate
                 // The actual floating point value is not important, only its floored integer component (implicit in the cast)
                 let f_log = if f_log.ceil() - f_log < std::f32::EPSILON {
                     f_log + 0.1
                 } else {
                     f_log
                 };
-                assert_eq!(ilog(d, i), f_log as UIntX);
+                assert_eq!(ilog(d, i), f_log as u128);
             }
         }
     }
@@ -324,11 +339,11 @@ mod tests {
                 mod [< $t _d $d >] {
                     use std::mem::size_of;
                     use super::{DilationTestData, UndilationTestData};
-                    use super::super::{UIntX, build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult, undilate_mask, undilate_shift};
+                    use super::super::{build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult, undilate_mask, undilate_shift};
 
                     #[test]
                     fn dilated_mask_is_correct() {
-                        assert_eq!(build_dilated_mask((size_of::<$t>() * 8 / $d) as UIntX, $d as UIntX) as $t, DilationTestData::<$t, $d>::dilated_mask());
+                        assert_eq!(build_dilated_mask((size_of::<$t>() * 8 / $d) as u128, $d as u128) as $t, DilationTestData::<$t, $d>::dilated_mask());
                     }
 
                     #[test]
@@ -342,14 +357,14 @@ mod tests {
                     #[test]
                     fn dilate_mult_is_correct() {
                         for (round, mult, _) in DilationTestData::<$t, $d>::test_cases() {
-                            assert_eq!(dilate_mult::<$t, $d>(round as UIntX) as $t, mult);
+                            assert_eq!(dilate_mult::<$t, $d>(round as u128) as $t, mult);
                         }
                     }
 
                     #[test]
                     fn dilate_mask_is_correct() {
                         for (round, _, mask) in DilationTestData::<$t, $d>::test_cases() {
-                            assert_eq!(dilate_mask::<$t, $d>(round as UIntX) as $t, mask);
+                            assert_eq!(dilate_mask::<$t, $d>(round as u128) as $t, mask);
                         }
                     }
 
@@ -369,14 +384,14 @@ mod tests {
                     #[test]
                     fn undilate_mult_is_correct() {
                         for (round, mult, _) in UndilationTestData::<$t, $d>::test_cases() {
-                            assert_eq!(undilate_mult::<$t, $d>(round as UIntX) as $t, mult);
+                            assert_eq!(undilate_mult::<$t, $d>(round as u128) as $t, mult);
                         }
                     }
 
                     #[test]
                     fn undilate_mask_is_correct() {
                         for (round, _, mask) in UndilationTestData::<$t, $d>::test_cases() {
-                            assert_eq!(undilate_mask::<$t, $d>(round as UIntX) as $t, mask);
+                            assert_eq!(undilate_mask::<$t, $d>(round as u128) as $t, mask);
                         }
                     }
 
@@ -392,4 +407,5 @@ mod tests {
     const_generation_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
     const_generation_tests!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
     const_generation_tests!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
+    const_generation_tests!(u128, 1, 2, 3, 4, 5, 6, 7, 8);
 }
