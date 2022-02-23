@@ -1,7 +1,15 @@
 [package]
 name = "dilate"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
+license-file = "Anti-Capitalist Software License (v 1.4)"
+description = "A compact, high performance integer dilation library for Rust."
+homepage = "https://github.com/alexmadeathing/dilate"
+repository = "https://github.com/alexmadeathing/dilate"
+documentation = "https://docs.rs/dilate"
+readme = "README.md"
+categories = ["algorithms", "encoding"]
+keywords = ["morton", "integer", "dilate", "dilation", "octree"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

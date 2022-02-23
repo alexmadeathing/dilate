@@ -74,6 +74,7 @@
 //! assert_eq!(u32::from(dilated), 0b1011);
 //! ```
 
+use std::fmt;
 use std::{mem::size_of, num::Wrapping};
 
 // Math ops
@@ -130,8 +131,14 @@ use const_generation::{
 // assert_eq!(u32::from(DilatedInt::<u32, 3>((morton_encoded >> 2) & DilatedInt::<u32, 3>::dilated_mask())), 789);
 // ```
 #[repr(transparent)]
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DilatedInt<T, const D: usize>(pub T);
+
+impl<T, const D: usize> fmt::Display for DilatedInt<T, D> where T: fmt::Display {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 /// Provides access to the mask of dilated bits
 /// 
