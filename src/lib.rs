@@ -1,31 +1,31 @@
 // ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
-// 
+//
 // Copyright © 2022 Alex Blunt (alexmadeathing)
-// 
+//
 // This is anti-capitalist software, released for free use by individuals and
 // organizations that do not operate by capitalist principles.
-// 
+//
 // Permission is hereby granted, free of charge, to any person or organization
 // (the "User") obtaining a copy of this software and associated documentation
 // files (the "Software"), to use, copy, modify, merge, distribute, and/or sell
-// copies of the Software, subject to the following conditions: 
+// copies of the Software, subject to the following conditions:
 //
 // 1. The above copyright notice and this permission notice shall be included in
 // all copies or modified versions of the Software.
-// 
+//
 // 2. The User is one of the following:
 //   a. An individual person, laboring for themselves
 //   b. A non-profit organization
 //   c. An educational institution
 //   d. An organization that seeks shared profit for all of its members, and
 //      allows non-members to set the cost of their labor
-// 
+//
 // 3. If the User is an organization with owners, then all owners are workers
 // and all workers are owners with equal equity and/or equal vote.
-// 
+//
 // 4. If the User is an organization, then the User is not law enforcement or
 // military, or working for or under either.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY
 // KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 // FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
@@ -47,13 +47,19 @@
 // By: Michael D Adams and David S Wise
 // Permission has been granted to reproduce the agorithms within this paper
 
-use std::{num::Wrapping, mem::size_of};
+use std::{mem::size_of, num::Wrapping};
+
+// Math ops
+use std::ops::{Add, AddAssign, Sub, SubAssign, BitAnd, Not};
 
 mod const_generation;
-use const_generation::{build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult, undilate_mask, undilate_shift};
+use const_generation::{
+    build_dilated_mask, build_undilated_max, dilate_mask, dilate_max_round, dilate_mult,
+    undilate_mask, undilate_max_round, undilate_mult, undilate_shift,
+};
 
 // NOTE Until we have stable specialization, D is limited to 1-8
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DilatedInt<T, const D: usize>(pub T);
 
 // Dilated mask trait
@@ -430,10 +436,14 @@ impl From<DilatedInt<u64, 3>> for u64 {
 impl From<DilatedInt<u128, 3>> for u128 {
     fn from(dilated: DilatedInt<u128, 3>) -> Self {
         let mut v = Wrapping(dilated.0);
-        v = (v * Wrapping(0x00000000000000000000000000000015)) & Wrapping(0x0e070381c0e070381c0e070381c0e070);
-        v = (v * Wrapping(0x00000000000000000000000000001041)) & Wrapping(0x0ff80001ff00003fe00007fc0000ff80);
-        v = (v * Wrapping(0x00000000000000000000001000040001)) & Wrapping(0x0ffffffe00000000000007ffffff0000);
-        v = (v * Wrapping(0x00001000000000000040000000000001)) & Wrapping(0x0ffffffffffffffffffff80000000000);
+        v = (v * Wrapping(0x00000000000000000000000000000015))
+            & Wrapping(0x0e070381c0e070381c0e070381c0e070);
+        v = (v * Wrapping(0x00000000000000000000000000001041))
+            & Wrapping(0x0ff80001ff00003fe00007fc0000ff80);
+        v = (v * Wrapping(0x00000000000000000000001000040001))
+            & Wrapping(0x0ffffffe00000000000007ffffff0000);
+        v = (v * Wrapping(0x00001000000000000040000000000001))
+            & Wrapping(0x0ffffffffffffffffffff80000000000);
         v.0 >> 82
     }
 }
@@ -456,7 +466,7 @@ macro_rules! dilated_int_dn_from_impls {
                     v = (v * Wrapping(dilate_mult::<$t, $d>(i) as $t)) & Wrapping(dilate_mask::<$t, $d>(i) as $t);
                     i += 1;
                 }
-                
+
                 Self(v.0)
             }
         }
@@ -520,14 +530,69 @@ dilated_int_usize_from_impls!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
 dilated_int_usize_from_impls!(u128, 1, 2, 3, 4, 5, 6, 7, 8);
 
 // ============================================================================
+// Arithmetic trait impls
+
+impl<T, const D: usize> Add for DilatedInt<T, D>
+where
+    Self: DilatedMask<T>,
+    T: Not<Output = T> + BitAnd<Output = T>,
+    Wrapping<T>: Add<Output = Wrapping<T>>
+{
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        Self((Wrapping(self.0) + Wrapping(!Self::dilated_mask()) + Wrapping(rhs.0)).0 & Self::dilated_mask())
+    }
+}
+
+impl<T, const D: usize> AddAssign for DilatedInt<T, D>
+where
+    Self: DilatedMask<T>,
+    T: Copy + Not<Output = T> + BitAnd<Output = T>,
+    Wrapping<T>: Add<Output = Wrapping<T>>
+{
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 = (Wrapping(self.0) + Wrapping(!Self::dilated_mask()) + Wrapping(rhs.0)).0 & Self::dilated_mask();
+    }
+}
+
+impl<T, const D: usize> Sub for DilatedInt<T, D>
+where
+    Self: DilatedMask<T>,
+    T: BitAnd<Output = T>,
+    Wrapping<T>: Sub<Output = Wrapping<T>>
+{
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self((Wrapping(self.0) - Wrapping(rhs.0)).0 & Self::dilated_mask())
+    }
+}
+
+impl<T, const D: usize> SubAssign for DilatedInt<T, D>
+where
+    Self: DilatedMask<T>,
+    T: Copy + BitAnd<Output = T>,
+    Wrapping<T>: Sub<Output = Wrapping<T>>
+{
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 = (Wrapping(self.0) - Wrapping(rhs.0)).0 & Self::dilated_mask();
+    }
+}
+
+// ============================================================================
 // Inner helper functions
 
 #[cfg(test)]
 mod tests {
     use std::marker::PhantomData;
 
-    use paste::paste;
     use lazy_static::lazy_static;
+    use paste::paste;
 
     struct TestData<T, const D: usize> {
         marker: PhantomData<T>,
@@ -584,14 +649,54 @@ mod tests {
     impl_test_data!(u64, 7, 0x0102040810204081, 0x00000000000001ff);
     impl_test_data!(u64, 8, 0x0101010101010101, 0x00000000000000ff);
 
-    impl_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff);
-    impl_test_data!(u128, 2, 0x55555555555555555555555555555555, 0x0000000000000000ffffffffffffffff);
-    impl_test_data!(u128, 3, 0x09249249249249249249249249249249, 0x0000000000000000000003ffffffffff);
-    impl_test_data!(u128, 4, 0x11111111111111111111111111111111, 0x000000000000000000000000ffffffff);
-    impl_test_data!(u128, 5, 0x01084210842108421084210842108421, 0x00000000000000000000000001ffffff);
-    impl_test_data!(u128, 6, 0x01041041041041041041041041041041, 0x000000000000000000000000001fffff);
-    impl_test_data!(u128, 7, 0x00810204081020408102040810204081, 0x0000000000000000000000000003ffff);
-    impl_test_data!(u128, 8, 0x01010101010101010101010101010101, 0x0000000000000000000000000000ffff);
+    impl_test_data!(
+        u128,
+        1,
+        0xffffffffffffffffffffffffffffffff,
+        0xffffffffffffffffffffffffffffffff
+    );
+    impl_test_data!(
+        u128,
+        2,
+        0x55555555555555555555555555555555,
+        0x0000000000000000ffffffffffffffff
+    );
+    impl_test_data!(
+        u128,
+        3,
+        0x09249249249249249249249249249249,
+        0x0000000000000000000003ffffffffff
+    );
+    impl_test_data!(
+        u128,
+        4,
+        0x11111111111111111111111111111111,
+        0x000000000000000000000000ffffffff
+    );
+    impl_test_data!(
+        u128,
+        5,
+        0x01084210842108421084210842108421,
+        0x00000000000000000000000001ffffff
+    );
+    impl_test_data!(
+        u128,
+        6,
+        0x01041041041041041041041041041041,
+        0x000000000000000000000000001fffff
+    );
+    impl_test_data!(
+        u128,
+        7,
+        0x00810204081020408102040810204081,
+        0x0000000000000000000000000003ffff
+    );
+    impl_test_data!(
+        u128,
+        8,
+        0x01010101010101010101010101010101,
+        0x0000000000000000000000000000ffff
+    );
 
     macro_rules! impl_dil_mask_usize {
         ($innert:ty, $($d:literal),+) => {$(
@@ -615,7 +720,7 @@ mod tests {
     //        Furthermore, every test case is xor'd with every other test case to
     //        perform more tests with fewer hand written values
     lazy_static! {
-        static ref TEST_CASES: [Vec<(u128, u128)>; 9] = [
+        static ref DILATION_UNDILATION_TEST_CASES: [Vec<(u128, u128)>; 9] = [
             // D0 (not used)
             Vec::new(),
 
@@ -631,7 +736,7 @@ mod tests {
                 (0x33333333333333333333333333333333, 0x33333333333333333333333333333333),
                 (0x55555555555555555555555555555555, 0x55555555555555555555555555555555),
             ],
-    
+
             // D2
             vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
@@ -644,7 +749,7 @@ mod tests {
                 (0x33333333333333333333333333333333, 0x05050505050505050505050505050505),
                 (0x55555555555555555555555555555555, 0x11111111111111111111111111111111),
             ],
-    
+
             // D3
             vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
@@ -657,7 +762,7 @@ mod tests {
                 (0x33333333333333333333333333333333, 0x09009009009009009009009009009009),
                 (0x55555555555555555555555555555555, 0x01041041041041041041041041041041),
             ],
-    
+
             // D4
             vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
@@ -725,11 +830,102 @@ mod tests {
         ];
     }
 
+    // The first 32 values in each dimension
+    // Used for testing arithmetic
+    const VALUES: [[u128; 32]; 9] = [
+        // D0 (not used)
+        [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ],
+        // D1
+        [
+            0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10,
+            0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e,
+            0x1f,
+        ],
+        // D2
+        [
+            0x0, 0x1, 0x4, 0x5, 0x10, 0x11, 0x14, 0x15, 0x40, 0x41, 0x44, 0x45, 0x50, 0x51, 0x54,
+            0x55, 0x100, 0x101, 0x104, 0x105, 0x110, 0x111, 0x114, 0x115, 0x140, 0x141, 0x144,
+            0x145, 0x150, 0x151, 0x154, 0x155,
+        ],
+        // D3
+        [
+            0x0, 0x1, 0x8, 0x9, 0x40, 0x41, 0x48, 0x49, 0x200, 0x201, 0x208, 0x209, 0x240, 0x241,
+            0x248, 0x249, 0x1000, 0x1001, 0x1008, 0x1009, 0x1040, 0x1041, 0x1048, 0x1049, 0x1200,
+            0x1201, 0x1208, 0x1209, 0x1240, 0x1241, 0x1248, 0x1249,
+        ],
+        // D4
+        [
+            0x0, 0x1, 0x10, 0x11, 0x100, 0x101, 0x110, 0x111, 0x1000, 0x1001, 0x1010, 0x1011,
+            0x1100, 0x1101, 0x1110, 0x1111, 0x10000, 0x10001, 0x10010, 0x10011, 0x10100, 0x10101,
+            0x10110, 0x10111, 0x11000, 0x11001, 0x11010, 0x11011, 0x11100, 0x11101, 0x11110,
+            0x11111,
+        ],
+        // D5
+        [
+            0x0, 0x1, 0x20, 0x21, 0x400, 0x401, 0x420, 0x421, 0x8000, 0x8001, 0x8020, 0x8021,
+            0x8400, 0x8401, 0x8420, 0x8421, 0x100000, 0x100001, 0x100020, 0x100021, 0x100400,
+            0x100401, 0x100420, 0x100421, 0x108000, 0x108001, 0x108020, 0x108021, 0x108400,
+            0x108401, 0x108420, 0x108421,
+        ],
+        // D6
+        [
+            0x0, 0x1, 0x40, 0x41, 0x1000, 0x1001, 0x1040, 0x1041, 0x40000, 0x40001, 0x40040,
+            0x40041, 0x41000, 0x41001, 0x41040, 0x41041, 0x1000000, 0x1000001, 0x1000040,
+            0x1000041, 0x1001000, 0x1001001, 0x1001040, 0x1001041, 0x1040000, 0x1040001, 0x1040040,
+            0x1040041, 0x1041000, 0x1041001, 0x1041040, 0x1041041,
+        ],
+        // D7
+        [
+            0x0, 0x1, 0x80, 0x81, 0x4000, 0x4001, 0x4080, 0x4081, 0x200000, 0x200001, 0x200080,
+            0x200081, 0x204000, 0x204001, 0x204080, 0x204081, 0x10000000, 0x10000001, 0x10000080,
+            0x10000081, 0x10004000, 0x10004001, 0x10004080, 0x10004081, 0x10200000, 0x10200001,
+            0x10200080, 0x10200081, 0x10204000, 0x10204001, 0x10204080, 0x10204081,
+        ],
+        // D8
+        [
+            0x0,
+            0x1,
+            0x100,
+            0x101,
+            0x10000,
+            0x10001,
+            0x10100,
+            0x10101,
+            0x1000000,
+            0x1000001,
+            0x1000100,
+            0x1000101,
+            0x1010000,
+            0x1010001,
+            0x1010100,
+            0x1010101,
+            0x100000000,
+            0x100000001,
+            0x100000100,
+            0x100000101,
+            0x100010000,
+            0x100010001,
+            0x100010100,
+            0x100010101,
+            0x101000000,
+            0x101000001,
+            0x101000100,
+            0x101000101,
+            0x101010000,
+            0x101010001,
+            0x101010100,
+            0x101010101,
+        ],
+    ];
+
     macro_rules! integer_dilation_tests {
         ($t:ty, $($d:literal),+) => {$(
             paste! {
                 mod [< $t _d $d >] {
-                    use super::{TestData, TEST_CASES};
+                    use super::{TestData, DILATION_UNDILATION_TEST_CASES, VALUES};
                     use super::super::{DilatedInt, DilatedMask, UndilatedMax};
 
                     #[test]
@@ -757,8 +953,8 @@ mod tests {
                     #[test]
                     fn from_raw_int_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
-                        for (undilated_a, dilated_a) in TEST_CASES[$d].iter() {
-                            for (undilated_b, dilated_b) in TEST_CASES[$d].iter() {
+                        for (undilated_a, dilated_a) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
+                            for (undilated_b, dilated_b) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<$t, $d>::undilated_max();
                                 let dilated = (*dilated_a ^ *dilated_b) as $t & TestData::<$t, $d>::dilated_mask();
 
@@ -770,13 +966,109 @@ mod tests {
                     #[test]
                     fn to_raw_int_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
-                        for (undilated_a, dilated_a) in TEST_CASES[$d].iter() {
-                            for (undilated_b, dilated_b) in TEST_CASES[$d].iter() {
+                        for (undilated_a, dilated_a) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
+                            for (undilated_b, dilated_b) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<$t, $d>::undilated_max();
                                 let dilated = (*dilated_a ^ *dilated_b) as $t & TestData::<$t, $d>::dilated_mask();
 
                                 assert_eq!($t::from(DilatedInt::<$t, $d>(dilated)), undilated);
                             }
+                        }
+                    }
+
+                    #[test]
+                    fn add_is_correct() {
+                        let test_cases = [
+                            (VALUES[$d][0], VALUES[$d][0], VALUES[$d][0]), // 0 + 0 = 0
+                            (VALUES[$d][0], VALUES[$d][1], VALUES[$d][1]), // 0 + 1 = 1
+                            (VALUES[$d][0], VALUES[$d][2], VALUES[$d][2]), // 0 + 2 = 2
+                            (VALUES[$d][1], VALUES[$d][0], VALUES[$d][1]), // 1 + 0 = 1
+                            (VALUES[$d][1], VALUES[$d][1], VALUES[$d][2]), // 1 + 1 = 2
+                            (VALUES[$d][1], VALUES[$d][2], VALUES[$d][3]), // 1 + 2 = 3
+                            (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 + 0 = 2
+                            (VALUES[$d][2], VALUES[$d][1], VALUES[$d][3]), // 2 + 1 = 3
+                            (VALUES[$d][2], VALUES[$d][2], VALUES[$d][4]), // 2 + 2 = 4
+                            (TestData::<$t, $d>::dilated_mask() as u128, VALUES[$d][1], VALUES[$d][0]), // max + 1 = 0
+                        ];
+
+                        // Some formats won't support arithmetic (for example u8 D8)
+                        // So we have to filter to ensure they support all numbers involved with a particular test case
+                        let mask_u128 = TestData::<$t, $d>::dilated_mask() as u128;
+                        for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
+                            assert_eq!(DilatedInt::<$t, $d>(*a as $t) + DilatedInt::<$t, $d>(*b as $t), DilatedInt::<$t, $d>(*ans as $t));
+                        }
+                    }
+
+                    #[test]
+                    fn add_assign_is_correct() {
+                        let test_cases = [
+                            (VALUES[$d][0], VALUES[$d][0], VALUES[$d][0]), // 0 += 0 = 0
+                            (VALUES[$d][0], VALUES[$d][1], VALUES[$d][1]), // 0 += 1 = 1
+                            (VALUES[$d][0], VALUES[$d][2], VALUES[$d][2]), // 0 += 2 = 2
+                            (VALUES[$d][1], VALUES[$d][0], VALUES[$d][1]), // 1 += 0 = 1
+                            (VALUES[$d][1], VALUES[$d][1], VALUES[$d][2]), // 1 += 1 = 2
+                            (VALUES[$d][1], VALUES[$d][2], VALUES[$d][3]), // 1 += 2 = 3
+                            (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 += 0 = 2
+                            (VALUES[$d][2], VALUES[$d][1], VALUES[$d][3]), // 2 += 1 = 3
+                            (VALUES[$d][2], VALUES[$d][2], VALUES[$d][4]), // 2 += 2 = 4
+                            (TestData::<$t, $d>::dilated_mask() as u128, VALUES[$d][1], VALUES[$d][0]), // max += 1 = 0
+                        ];
+
+                        // Some formats won't support arithmetic (for example u8 D8)
+                        // So we have to filter to ensure they support all numbers involved with a particular test case
+                        let mask_u128 = TestData::<$t, $d>::dilated_mask() as u128;
+                        for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
+                            let mut assigned = DilatedInt::<$t, $d>(*a as $t);
+                            assigned += DilatedInt::<$t, $d>(*b as $t);
+                            assert_eq!(assigned, DilatedInt::<$t, $d>(*ans as $t));
+                        }
+                    }
+
+                    #[test]
+                    fn sub_is_correct() {
+                        let test_cases = [
+                            (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 - 0 = 2
+                            (VALUES[$d][2], VALUES[$d][1], VALUES[$d][1]), // 2 - 1 = 1
+                            (VALUES[$d][2], VALUES[$d][2], VALUES[$d][0]), // 2 - 2 = 0
+                            (VALUES[$d][3], VALUES[$d][0], VALUES[$d][3]), // 3 - 0 = 3
+                            (VALUES[$d][3], VALUES[$d][1], VALUES[$d][2]), // 3 - 1 = 2
+                            (VALUES[$d][3], VALUES[$d][2], VALUES[$d][1]), // 3 - 2 = 1
+                            (VALUES[$d][4], VALUES[$d][0], VALUES[$d][4]), // 4 - 0 = 4
+                            (VALUES[$d][4], VALUES[$d][1], VALUES[$d][3]), // 4 - 1 = 3
+                            (VALUES[$d][4], VALUES[$d][2], VALUES[$d][2]), // 4 - 2 = 2
+                            (VALUES[$d][0], VALUES[$d][1], TestData::<$t, $d>::dilated_mask() as u128), // 0 - 1 = max
+                        ];
+
+                        // Some formats won't support arithmetic (for example u8 D8)
+                        // So we have to filter to ensure they support all numbers involved with a particular test case
+                        let mask_u128 = TestData::<$t, $d>::dilated_mask() as u128;
+                        for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
+                            assert_eq!(DilatedInt::<$t, $d>(*a as $t) - DilatedInt::<$t, $d>(*b as $t), DilatedInt::<$t, $d>(*ans as $t));
+                        }
+                    }
+
+                    #[test]
+                    fn sub_assign_is_correct() {
+                        let test_cases = [
+                            (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 -= 0 = 2
+                            (VALUES[$d][2], VALUES[$d][1], VALUES[$d][1]), // 2 -= 1 = 1
+                            (VALUES[$d][2], VALUES[$d][2], VALUES[$d][0]), // 2 -= 2 = 0
+                            (VALUES[$d][3], VALUES[$d][0], VALUES[$d][3]), // 3 -= 0 = 3
+                            (VALUES[$d][3], VALUES[$d][1], VALUES[$d][2]), // 3 -= 1 = 2
+                            (VALUES[$d][3], VALUES[$d][2], VALUES[$d][1]), // 3 -= 2 = 1
+                            (VALUES[$d][4], VALUES[$d][0], VALUES[$d][4]), // 4 -= 0 = 4
+                            (VALUES[$d][4], VALUES[$d][1], VALUES[$d][3]), // 4 -= 1 = 3
+                            (VALUES[$d][4], VALUES[$d][2], VALUES[$d][2]), // 4 -= 2 = 2
+                            (VALUES[$d][0], VALUES[$d][1], TestData::<$t, $d>::dilated_mask() as u128), // 0 -= 1 = max
+                        ];
+
+                        // Some formats won't support arithmetic (for example u8 D8)
+                        // So we have to filter to ensure they support all numbers involved with a particular test case
+                        let mask_u128 = TestData::<$t, $d>::dilated_mask() as u128;
+                        for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
+                            let mut assigned = DilatedInt::<$t, $d>(*a as $t);
+                            assigned -= DilatedInt::<$t, $d>(*b as $t);
+                            assert_eq!(assigned, DilatedInt::<$t, $d>(*ans as $t));
                         }
                     }
                 }
