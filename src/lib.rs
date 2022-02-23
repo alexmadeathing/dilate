@@ -77,7 +77,6 @@
 use std::fmt;
 use std::{mem::size_of, num::Wrapping};
 
-// Math ops
 use std::ops::{Add, AddAssign, Sub, SubAssign, BitAnd, Not};
 
 mod const_generation;
@@ -699,9 +698,6 @@ where
         self.0 = (Wrapping(self.0) - Wrapping(rhs.0)).0 & Self::dilated_mask();
     }
 }
-
-// ============================================================================
-// Inner helper functions
 
 #[cfg(test)]
 mod tests {
