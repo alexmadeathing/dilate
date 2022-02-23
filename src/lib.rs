@@ -33,19 +33,46 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// A Rust implementation of:
+#![warn(missing_docs)]
+#![warn(rustdoc::missing_doc_code_examples)]
+#![deny(rustdoc::invalid_rust_codeblocks)]
 
-// [1] Converting to and from Dilated Integers
-// By: Rajeev Raman and David S. Wise
-// Permission has been granted to reproduce the agorithms within this paper
-
-// [2] Integer Dilation and Contraction for Quadtrees and Octrees
-// By: Leo Stocco and Gunther Schrack
-// Permission has been granted to reproduce the agorithms within this paper
-
-// [3] Fast Additions on Masked Integers
-// By: Michael D Adams and David S Wise
-// Permission has been granted to reproduce the agorithms within this paper
+//! A compact, high performance integer dilation library for Rust.
+//! 
+//! Integer dilation is the process of converting cartesian indices (eg.
+//! coordinates) into a format suitable for use in D-dimensional [Morton
+//! Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences. The
+//! dilation process takes an integer's bit sequence and inserts a number of 0
+//! bits (D - 1) between each original bit successively. Thus, the original bit
+//! sequence becomes evenly padded. For example:
+//! * `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
+//! * `0b1011` D3-dilated becomes `0b1000001001`
+//! 
+//! The process of undilation, or 'contraction', does the opposite:
+//! * `0b1010001` D2-contracted becomes `0b1101`
+//! * `0b1000001001` D3-contracted becomes `0b1011`
+//! 
+//! This library provides efficient casting to and from ordinary integer
+//! representation as well as various efficient mathematical operations between
+//! dilated integers.
+//! 
+//! # Examples
+//! 
+//! Example 2-Dilation Usage:
+//! ```
+//! let dilated = DilatedInt::<u32, 2>::from(0b1101);
+//! assert_eq!(dilated.0, 0b1010001);
+//! 
+//! assert_eq!(u32::from(dilated), 0b1101);
+//! ```
+//! 
+//! Example 3-Dilation Usage:
+//! ```
+//! let dilated = DilatedInt::<u32, 3>::from(0b1011);
+//! assert_eq!(dilated.0, 0b1000001001);
+//! 
+//! assert_eq!(u32::from(dilated), 0b1011);
+//! ```
 
 use std::{mem::size_of, num::Wrapping};
 
@@ -58,12 +85,80 @@ use const_generation::{
     undilate_mask, undilate_max_round, undilate_mult, undilate_shift,
 };
 
-// NOTE Until we have stable specialization, D is limited to 1-8
+/// The primary interface for dilating and undilating integers.
+/// 
+/// DilatedInt performs the dilation and undilation process via the standard Rust
+/// From trait. To dilate an integer, you may use DilatedInt's implementation of
+/// the `from()` method. The resulting tuple struct contains the dilated integer,
+/// the value of which may be obtained via the tuple member `.0`. To convert back
+/// to a regular integer, you may use the integer's implementation of the
+/// `from()` method, passing the DilatedInt as a parameter.
+/// 
+/// # Examples
+/// 
+/// Example 2-Dilation Usage:
+/// ```
+/// let dilated = DilatedInt::<u32, 2>::from(0b1101);
+/// assert_eq!(dilated.0, 0b1010001);
+/// 
+/// assert_eq!(u32::from(dilated), 0b1101);
+/// ```
+/// 
+/// Example 3-Dilation Usage:
+/// ```
+/// let dilated = DilatedInt::<u32, 3>::from(0b1011);
+/// assert_eq!(dilated.0, 0b1000001001);
+/// 
+/// assert_eq!(u32::from(dilated), 0b1011);
+/// ```
+// 
+// NOTE - Not exposing this to docs yet as example is quite involved
+// Whilst the application of dilated integers are not limited to [Morton
+// Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences, they
+// are an ideal candidate.
+// To dilate a set of cartesian indices and produce a Morton encoded integer,
+// you may use bit shift and or operators to combine multiple dilations:
+// ```
+// let x_dilated = DilatedInt::<u32, 3>::from(123);
+// let y_dilated = DilatedInt::<u32, 3>::from(456);
+// let z_dilated = DilatedInt::<u32, 3>::from(789);
+// 
+// let morton_encoded = (x_dilated.0 << 0) | (y_dilated.0 << 1) | (z_dilated.0 << 2);
+// 
+// assert_eq!(u32::from(DilatedInt::<u32, 3>((morton_encoded >> 0) & DilatedInt::<u32, 3>::dilated_mask())), 123);
+// assert_eq!(u32::from(DilatedInt::<u32, 3>((morton_encoded >> 1) & DilatedInt::<u32, 3>::dilated_mask())), 456);
+// assert_eq!(u32::from(DilatedInt::<u32, 3>((morton_encoded >> 2) & DilatedInt::<u32, 3>::dilated_mask())), 789);
+// ```
+#[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DilatedInt<T, const D: usize>(pub T);
 
-// Dilated mask trait
+/// Provides access to the mask of dilated bits
+/// 
+/// The DilatedMask trait is implemented for DilatedInt for all supported types
+/// and all values of D.
 pub trait DilatedMask<T> {
+    /// The `dilated_mask()` function returns a set of dilated 1 bits, each separated
+    /// by D-1 0 bits, equal to the maximum dilated value that fits into T. It is the
+    /// dilated equivalent of T::MAX.
+    /// This function is zero cost and will most likely be reduced by the compiler to
+    /// a single constant value.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// assert_eq!(DilatedInt::<u8, 2>::dilated_mask(), 0b01010101);
+    /// assert_eq!(DilatedInt::<u16, 3>::dilated_mask(), 0b0001001001001001);
+    /// ```
+    /// 
+    /// # NOTE
+    /// 
+    /// Note in the case where `size_of::<T>() * 8` is not a power of D,
+    /// `dilated_mask()` only returns set bits for the divisions which fit entirely
+    /// within T without being truncated - this is the rule of thumb applied to
+    /// across all DilatedInt methods and is intended to provide enough padding for
+    /// use with more complex encodings, such as [Morton
+    /// Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences.
     fn dilated_mask() -> T;
 }
 
@@ -79,8 +174,22 @@ macro_rules! dilated_int_mask_impls {
 }
 dilated_int_mask_impls!(u8, u16, u32, u64, u128, usize);
 
-// Undilated maximum value trait
+/// Provides access to the maximum undilated value supported by T, D-dilated
+/// 
+/// The UndilatedMax trait is implemented for DilatedInt for all supported types
+/// and all values of D.
 pub trait UndilatedMax<T> {
+    /// The `undilated_max()` function returns the maximum undilated value which may
+    /// be D-dilated into type T.
+    /// This function is zero cost and will most likely be reduced by the compiler to
+    /// a single constant value.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// assert_eq!(DilatedInt::<u8, 2>::undilated_max(), 15);
+    /// assert_eq!(DilatedInt::<u16, 3>::undilated_max(), 31);
+    /// ```
     fn undilated_max() -> T;
 }
 
