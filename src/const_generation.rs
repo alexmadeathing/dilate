@@ -188,8 +188,6 @@ mod tests {
         };
     }
 
-    // (Type, D, max_round, per round: (round, mult, mask)*)
-
     impl_dilation_test_data!(u8, 1, 0xff, 0,);
     impl_dilation_test_data!(u8, 2, 0x55, 0,);
     impl_dilation_test_data!(u8, 3, 0x09, 2, (0, 0x11, 0xC3), (1, 0x05, 0x49));
@@ -264,8 +262,6 @@ mod tests {
             }
         };
     }
-
-    // (Type, D, max_round, per round: (round, mult, mask)*)
 
     impl_undilation_test_data!(u8, 1, 0xff, 0, 0,);
     impl_undilation_test_data!(u8, 2, 0x0f, 3, 3, (0, 0x03, 0x66), (1, 0x05, 0x78), (2, 0x11, 0x7F));
