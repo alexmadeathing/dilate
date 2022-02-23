@@ -1,5 +1,5 @@
 # WARNING
-This library is work in progress. We currently support dilation and undilation of types u8, u16, u32, u64, usize. We do not yet fully support u128 (though partial support is in place). We do not yet support arithmetic on dilated integers.
+This library is work in progress. We currently support dilation and undilation of types u8, u16, u32, u64, u128, usize. We do not yet support arithmetic on dilated integers.
 
 # dilate
 A compact, high performance integer dilation library for Rust.
@@ -16,6 +16,7 @@ This library provides efficient casting to and from ordinary integer representat
 
 # Goals
 * High performance - Ready to use in performance sensitive contexts
+* Multiple types - Supports u8, u16, u32, u64, u128, usize (signed versions not yet planned)
 * N-dimensional - Suitable for multi-dimensional applications (up to 8 dimensions)
 * Trait based implementation - Conforms to standard Rust implementation patterns
 * No dependencies - Depends on Rust standard library only
@@ -33,10 +34,7 @@ For bugs reports, please [submit a bug report](https://github.com/alexmadeathing
 
 For feature requests, please [submit a feature request](https://github.com/alexmadeathing/dilate/issues/new?assignees=&labels=enhancement&template=feature_request.md&title=).
 
-If you have ideas and want to contribute directly, please start by [creating an RFC](https://github.com/alexmadeathing/dilate/discussions/new) in the discussions area.
-When your code is ready to be published, please submit a pull request attached to your RFC.
-
-Full contributing procedure is WIP.
+If you have ideas and want to contribute directly, please start by creating an [Idea discussion](https://github.com/alexmadeathing/dilate/discussions/new) in the discussions area. Allow others to comment prior to committing to doing the work. When all parties agree on the design, the work may begin. When your code is ready to be published, please submit a pull request referring back to your Idea discussion. We are unlikely to accept a pull request that has not gone through this process, unless it is for a very small change.
 
 # References and Acknowledgments
 Many thanks to the authors of the following white papers:
