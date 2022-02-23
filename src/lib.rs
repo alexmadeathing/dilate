@@ -66,7 +66,7 @@ macro_rules! dilated_int_mask_impls {
         impl<const D: usize> DilatedMask<$t> for DilatedInt<$t, D> {
             #[inline]
             fn dilated_mask() -> $t {
-                build_dilated_mask((size_of::<$t>() * 8 / D) as u128, D as u128) as $t
+                build_dilated_mask(size_of::<$t>() * 8 / D, D) as $t
             }
         }
     )+}
@@ -529,12 +529,6 @@ mod tests {
     use paste::paste;
     use lazy_static::lazy_static;
 
-//    use crate::UndilatedMax;
-//    #[test]
-//    fn hack() {
-//        println!("u128 undilated_max = 0x{:x}", super::DilatedInt::<u128, 3>::undilated_max());
-//    }
-//
     struct TestData<T, const D: usize> {
         marker: PhantomData<T>,
     }
@@ -544,12 +538,12 @@ mod tests {
             impl TestData<$t, $d> {
                 #[inline]
                 fn dilated_mask() -> $t {
-                    ($dilated_mask) as $t
+                    $dilated_mask
                 }
 
                 #[inline]
                 fn undilated_max() -> $t {
-                    ($undilated_max) as $t
+                    $undilated_max
                 }
             }
         };
@@ -601,7 +595,7 @@ mod tests {
 
     macro_rules! impl_dil_mask_usize {
         ($innert:ty, $($d:literal),+) => {$(
-            impl_test_data!(usize, $d, TestData::<$innert, $d>::dilated_mask(), TestData::<$innert, $d>::undilated_max());
+            impl_test_data!(usize, $d, TestData::<$innert, $d>::dilated_mask() as usize, TestData::<$innert, $d>::undilated_max() as usize);
         )+}
     }
     #[cfg(target_pointer_width = "16")]
