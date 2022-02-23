@@ -60,6 +60,8 @@
 //! 
 //! Example 2-Dilation Usage:
 //! ```
+//! use dilate::DilatedInt;
+//! 
 //! let dilated = DilatedInt::<u32, 2>::from(0b1101);
 //! assert_eq!(dilated.0, 0b1010001);
 //! 
@@ -68,6 +70,8 @@
 //! 
 //! Example 3-Dilation Usage:
 //! ```
+//! use dilate::DilatedInt;
+//! 
 //! let dilated = DilatedInt::<u32, 3>::from(0b1011);
 //! assert_eq!(dilated.0, 0b1000001001);
 //! 
@@ -98,6 +102,8 @@ use const_generation::{
 /// 
 /// Example 2-Dilation Usage:
 /// ```
+/// use dilate::DilatedInt;
+/// 
 /// let dilated = DilatedInt::<u32, 2>::from(0b1101);
 /// assert_eq!(dilated.0, 0b1010001);
 /// 
@@ -106,6 +112,8 @@ use const_generation::{
 /// 
 /// Example 3-Dilation Usage:
 /// ```
+/// use dilate::DilatedInt;
+/// 
 /// let dilated = DilatedInt::<u32, 3>::from(0b1011);
 /// assert_eq!(dilated.0, 0b1000001001);
 /// 
@@ -153,6 +161,8 @@ pub trait DilatedMask<T> {
     /// # Examples
     /// 
     /// ```
+    /// use dilate::{DilatedInt, DilatedMask};
+    /// 
     /// assert_eq!(DilatedInt::<u8, 2>::dilated_mask(), 0b01010101);
     /// assert_eq!(DilatedInt::<u16, 3>::dilated_mask(), 0b0001001001001001);
     /// ```
@@ -193,6 +203,8 @@ pub trait UndilatedMax<T> {
     /// # Examples
     /// 
     /// ```
+    /// use dilate::{DilatedInt, UndilatedMax};
+    /// 
     /// assert_eq!(DilatedInt::<u8, 2>::undilated_max(), 15);
     /// assert_eq!(DilatedInt::<u16, 3>::undilated_max(), 31);
     /// ```
