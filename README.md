@@ -1,4 +1,4 @@
-[![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=flat)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
+[![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=shield)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
 
 # WARNING
 This library is in alpha. It is feature complete at a basic level, but may be subject to change.
