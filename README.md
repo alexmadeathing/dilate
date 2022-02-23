@@ -1,5 +1,5 @@
 # WARNING
-This library is work in progress. We currently support dilation and undilation of types u8, u16, u32, u64, u128, usize. We do not yet support arithmetic on dilated integers.
+This library is in alpha. It is feature complete at a basic level, but may be subject to change.
 
 # dilate
 A compact, high performance integer dilation library for Rust.
@@ -38,9 +38,9 @@ If you have ideas and want to contribute directly, please start by creating an [
 
 # References and Acknowledgments
 Many thanks to the authors of the following white papers:
-* [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
-* [2] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
-* [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
+* \[1\] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
+* \[2\] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
+* \[3\] Fast Additions on Masked Integers - Michael D Adams and David S Wise
 
 Permission has been explicitly granted to reproduce the agorithms within each paper.
 
