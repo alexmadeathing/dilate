@@ -50,14 +50,13 @@
 use std::{num::Wrapping, mem::size_of};
 
 mod const_generation;
-use const_generation::{UIntX, build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult, undilate_mask, undilate_shift};
+use const_generation::{build_dilated_mask, build_undilated_max, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult, undilate_mask, undilate_shift};
 
 // NOTE Until we have stable specialization, D is limited to 1-8
 #[derive(Clone, Copy, Default, Debug)]
 pub struct DilatedInt<T, const D: usize>(pub T);
 
 // Dilated mask trait
-// Returns the equivalent of DilatedInt::<T, D>::from(0xffffffffffffffff)
 pub trait DilatedMask<T> {
     fn dilated_mask() -> T;
 }
@@ -67,14 +66,12 @@ macro_rules! dilated_int_mask_impls {
         impl<const D: usize> DilatedMask<$t> for DilatedInt<$t, D> {
             #[inline]
             fn dilated_mask() -> $t {
-                build_dilated_mask((size_of::<$t>() * 8 / D) as UIntX, D as UIntX) as $t
+                build_dilated_mask((size_of::<$t>() * 8 / D) as u128, D as u128) as $t
             }
         }
     )+}
 }
-dilated_int_mask_impls!(u8, u16, u32, u64, usize);
-#[cfg(has_i128)]
-dilated_int_mask_impls!(u128);
+dilated_int_mask_impls!(u8, u16, u32, u64, u128, usize);
 
 // Undilated maximum value trait
 pub trait UndilatedMax<T> {
@@ -91,9 +88,7 @@ macro_rules! dilated_int_undilated_max_impls {
         }
     )+}
 }
-dilated_int_undilated_max_impls!(u8, u16, u32, u64, usize);
-#[cfg(has_i128)]
-dilated_int_undilated_max_impls!(u128);
+dilated_int_undilated_max_impls!(u8, u16, u32, u64, u128, usize);
 
 // ============================================================================
 // Implement From for D 1 dilated integers (no dilation - provided for easier
@@ -117,9 +112,7 @@ macro_rules! dilated_int_d1_from_impls {
         }
     )+}
 }
-dilated_int_d1_from_impls!(u8, u16, u32, u64);
-#[cfg(has_i128)]
-dilated_int_d1_from_impls!(u128);
+dilated_int_d1_from_impls!(u8, u16, u32, u64, u128);
 
 // ============================================================================
 // Implement From for D 2 dilated integers
@@ -201,7 +194,6 @@ impl From<u64> for DilatedInt<u64, 2> {
     }
 }
 
-#[cfg(has_i128)]
 impl From<u128> for DilatedInt<u128, 2> {
     #[inline]
     fn from(value: u128) -> Self {
@@ -274,7 +266,6 @@ impl From<DilatedInt<u64, 2>> for u64 {
     }
 }
 
-#[cfg(has_i128)]
 impl From<DilatedInt<u128, 2>> for u128 {
     #[inline]
     fn from(dilated: DilatedInt<u128, 2>) -> Self {
@@ -370,7 +361,6 @@ impl From<u64> for DilatedInt<u64, 3> {
     }
 }
 
-#[cfg(has_i128)]
 impl From<u128> for DilatedInt<u128, 3> {
     #[inline]
     fn from(value: u128) -> Self {
@@ -437,12 +427,14 @@ impl From<DilatedInt<u64, 3>> for u64 {
     }
 }
 
-#[cfg(has_i128)]
 impl From<DilatedInt<u128, 3>> for u128 {
     fn from(dilated: DilatedInt<u128, 3>) -> Self {
         let mut v = Wrapping(dilated.0);
-        todo!();
-        v.0
+        v = (v * Wrapping(0x00000000000000000000000000000015)) & Wrapping(0x0e070381c0e070381c0e070381c0e070);
+        v = (v * Wrapping(0x00000000000000000000000000001041)) & Wrapping(0x0ff80001ff00003fe00007fc0000ff80);
+        v = (v * Wrapping(0x00000000000000000000001000040001)) & Wrapping(0x0ffffffe00000000000007ffffff0000);
+        v = (v * Wrapping(0x00001000000000000040000000000001)) & Wrapping(0x0ffffffffffffffffffff80000000000);
+        v.0 >> 82
     }
 }
 
@@ -490,7 +482,6 @@ dilated_int_dn_from_impls!(u8, 4, 5, 6, 7, 8);
 dilated_int_dn_from_impls!(u16, 4, 5, 6, 7, 8);
 dilated_int_dn_from_impls!(u32, 4, 5, 6, 7, 8);
 dilated_int_dn_from_impls!(u64, 4, 5, 6, 7, 8);
-#[cfg(has_i128)]
 dilated_int_dn_from_impls!(u128, 4, 5, 6, 7, 8);
 
 // ============================================================================
@@ -524,6 +515,10 @@ dilated_int_usize_from_impls!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
 #[cfg(target_pointer_width = "64")]
 dilated_int_usize_from_impls!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
 
+// Bootstrap usize (64 bit) for any number of dimensions
+#[cfg(target_pointer_width = "128")]
+dilated_int_usize_from_impls!(u128, 1, 2, 3, 4, 5, 6, 7, 8);
+
 // ============================================================================
 // Inner helper functions
 
@@ -534,8 +529,12 @@ mod tests {
     use paste::paste;
     use lazy_static::lazy_static;
 
-    use crate::const_generation::UIntX;
-
+//    use crate::UndilatedMax;
+//    #[test]
+//    fn hack() {
+//        println!("u128 undilated_max = 0x{:x}", super::DilatedInt::<u128, 3>::undilated_max());
+//    }
+//
     struct TestData<T, const D: usize> {
         marker: PhantomData<T>,
     }
@@ -591,6 +590,15 @@ mod tests {
     impl_test_data!(u64, 7, 0x0102040810204081, 0x00000000000001ff);
     impl_test_data!(u64, 8, 0x0101010101010101, 0x00000000000000ff);
 
+    impl_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff);
+    impl_test_data!(u128, 2, 0x55555555555555555555555555555555, 0x0000000000000000ffffffffffffffff);
+    impl_test_data!(u128, 3, 0x09249249249249249249249249249249, 0x0000000000000000000003ffffffffff);
+    impl_test_data!(u128, 4, 0x11111111111111111111111111111111, 0x000000000000000000000000ffffffff);
+    impl_test_data!(u128, 5, 0x01084210842108421084210842108421, 0x00000000000000000000000001ffffff);
+    impl_test_data!(u128, 6, 0x01041041041041041041041041041041, 0x000000000000000000000000001fffff);
+    impl_test_data!(u128, 7, 0x00810204081020408102040810204081, 0x0000000000000000000000000003ffff);
+    impl_test_data!(u128, 8, 0x01010101010101010101010101010101, 0x0000000000000000000000000000ffff);
+
     macro_rules! impl_dil_mask_usize {
         ($innert:ty, $($d:literal),+) => {$(
             impl_test_data!(usize, $d, TestData::<$innert, $d>::dilated_mask(), TestData::<$innert, $d>::undilated_max());
@@ -602,160 +610,123 @@ mod tests {
     impl_dil_mask_usize!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
     #[cfg(target_pointer_width = "64")]
     impl_dil_mask_usize!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
+    #[cfg(target_pointer_width = "128")]
+    impl_dil_mask_usize!(u128, 1, 2, 3, 4, 5, 6, 7, 8);
 
     // NOTE - The following test cases are shared between all types
     //        The values are first cast to the target type, then masked with either:
     //            undilated_max() for undilated values
     //            dilated_mask() for dilated values
     //        This procedure ensures that the test data is 100% valid in all cases
-    // NOTE - I currently don't have a good way to extend these test cases to support u128, without duplication
+    //        Furthermore, every test case is xor'd with every other test case to
+    //        perform more tests with fewer hand written values
     lazy_static! {
-        static ref TEST_CASES: [Vec<(UIntX, UIntX)>; 9] = [
+        static ref TEST_CASES: [Vec<(u128, u128)>; 9] = [
             // D0 (not used)
             Vec::new(),
-    
+
             // D1 (data should pass through unchanged)
             vec![
-                (0xffffffffffffffff, 0xffffffffffffffff),
-                (0x0000000000000000, 0x0000000000000000),
-                (0xffffffff00000000, 0xffffffff00000000),
-                (0x00000000ffffffff, 0x00000000ffffffff),
-                (0xffff0000ffff0000, 0xffff0000ffff0000),
-                (0x0000ffff0000ffff, 0x0000ffff0000ffff),
-                (0xff00ff00ff00ff00, 0xff00ff00ff00ff00),
-                (0x00ff00ff00ff00ff, 0x00ff00ff00ff00ff),
-                (0xf0f0f0f0f0f0f0f0, 0xf0f0f0f0f0f0f0f0),
-                (0x0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f),
-                (0xcccccccccccccccc, 0xcccccccccccccccc),
-                (0x3333333333333333, 0x3333333333333333),
-                (0xaaaaaaaaaaaaaaaa, 0xaaaaaaaaaaaaaaaa),
-                (0x5555555555555555, 0x5555555555555555),
+                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
+                (0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff),
+                (0x0000000000000000ffffffffffffffff, 0x0000000000000000ffffffffffffffff),
+                (0x00000000ffffffff00000000ffffffff, 0x00000000ffffffff00000000ffffffff),
+                (0x0000ffff0000ffff0000ffff0000ffff, 0x0000ffff0000ffff0000ffff0000ffff),
+                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x00ff00ff00ff00ff00ff00ff00ff00ff),
+                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f),
+                (0x33333333333333333333333333333333, 0x33333333333333333333333333333333),
+                (0x55555555555555555555555555555555, 0x55555555555555555555555555555555),
             ],
     
             // D2
             vec![
-                (0xffffffffffffffff, 0x5555555555555555),
-                (0x0000000000000000, 0x0000000000000000),
-                (0xffffffff00000000, 0x0000000000000000),
-                (0x00000000ffffffff, 0x5555555555555555),
-                (0xffff0000ffff0000, 0x5555555500000000),
-                (0x0000ffff0000ffff, 0x0000000055555555),
-                (0xff00ff00ff00ff00, 0x5555000055550000),
-                (0x00ff00ff00ff00ff, 0x0000555500005555),
-                (0xf0f0f0f0f0f0f0f0, 0x5500550055005500),
-                (0x0f0f0f0f0f0f0f0f, 0x0055005500550055),
-                (0xcccccccccccccccc, 0x5050505050505050),
-                (0x3333333333333333, 0x0505050505050505),
-                (0xaaaaaaaaaaaaaaaa, 0x4444444444444444),
-                (0x5555555555555555, 0x1111111111111111),
+                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
+                (0xffffffffffffffffffffffffffffffff, 0x55555555555555555555555555555555),
+                (0x0000000000000000ffffffffffffffff, 0x55555555555555555555555555555555),
+                (0x00000000ffffffff00000000ffffffff, 0x00000000000000005555555555555555),
+                (0x0000ffff0000ffff0000ffff0000ffff, 0x00000000555555550000000055555555),
+                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x00005555000055550000555500005555),
+                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x00550055005500550055005500550055),
+                (0x33333333333333333333333333333333, 0x05050505050505050505050505050505),
+                (0x55555555555555555555555555555555, 0x11111111111111111111111111111111),
             ],
     
             // D3
             vec![
-                (0xffffffffffffffff, 0x1249249249249249),
-                (0x0000000000000000, 0x0000000000000000),
-                (0xffffffff00000000, 0x0000000000000000),
-                (0x00000000ffffffff, 0x1249249249249249),
-                (0xffff0000ffff0000, 0x1249000000000000),
-                (0x0000ffff0000ffff, 0x0000249249249249),
-                (0xff00ff00ff00ff00, 0x0000249249000000),
-                (0x00ff00ff00ff00ff, 0x1249000000249249),
-                (0xf0f0f0f0f0f0f0f0, 0x1000249000249000),
-                (0x0f0f0f0f0f0f0f0f, 0x0249000249000249),
-                (0xcccccccccccccccc, 0x0240240240240240),
-                (0x3333333333333333, 0x1009009009009009),
-                (0xaaaaaaaaaaaaaaaa, 0x0208208208208208),
-                (0x5555555555555555, 0x1041041041041041),
+                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
+                (0xffffffffffffffffffffffffffffffff, 0x09249249249249249249249249249249),
+                (0x0000000000000000ffffffffffffffff, 0x09249249249249249249249249249249),
+                (0x00000000ffffffff00000000ffffffff, 0x00000000249249249249249249249249),
+                (0x0000ffff0000ffff0000ffff0000ffff, 0x09249249000000000000249249249249),
+                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x00249249000000249249000000249249),
+                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x09000249000249000249000249000249),
+                (0x33333333333333333333333333333333, 0x09009009009009009009009009009009),
+                (0x55555555555555555555555555555555, 0x01041041041041041041041041041041),
             ],
     
             // D4
             vec![
-                (0xffffffffffffffff, 0x1111111111111111),
-                (0x0000000000000000, 0x0000000000000000),
-                (0xffffffff00000000, 0x0000000000000000),
-                (0x00000000ffffffff, 0x1111111111111111),
-                (0xffff0000ffff0000, 0x0000000000000000),
-                (0x0000ffff0000ffff, 0x1111111111111111),
-                (0xff00ff00ff00ff00, 0x1111111100000000),
-                (0x00ff00ff00ff00ff, 0x0000000011111111),
-                (0xf0f0f0f0f0f0f0f0, 0x1111000011110000),
-                (0x0f0f0f0f0f0f0f0f, 0x0000111100001111),
-                (0xcccccccccccccccc, 0x1100110011001100),
-                (0x3333333333333333, 0x0011001100110011),
-                (0xaaaaaaaaaaaaaaaa, 0x1010101010101010),
-                (0x5555555555555555, 0x0101010101010101),
+                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
+                (0xffffffffffffffffffffffffffffffff, 0x11111111111111111111111111111111),
+                (0x0000000000000000ffffffffffffffff, 0x11111111111111111111111111111111),
+                (0x00000000ffffffff00000000ffffffff, 0x11111111111111111111111111111111),
+                (0x0000ffff0000ffff0000ffff0000ffff, 0x00000000000000001111111111111111),
+                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x00000000111111110000000011111111),
+                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x00001111000011110000111100001111),
+                (0x33333333333333333333333333333333, 0x00110011001100110011001100110011),
+                (0x55555555555555555555555555555555, 0x01010101010101010101010101010101),
             ],
 
             // D5
             vec![
-                (0xffffffffffffffff, 0x0084210842108421),
-                (0x0000000000000000, 0x0000000000000000),
-                (0xffffffff00000000, 0x0000000000000000),
-                (0x00000000ffffffff, 0x0084210842108421),
-                (0xffff0000ffff0000, 0x0000000000000000),
-                (0x0000ffff0000ffff, 0x0084210842108421),
-                (0xff00ff00ff00ff00, 0x0084210000000000),
-                (0x00ff00ff00ff00ff, 0x0000000842108421),
-                (0xf0f0f0f0f0f0f0f0, 0x0000000842100000),
-                (0x0f0f0f0f0f0f0f0f, 0x0084210000008421),
-                (0xcccccccccccccccc, 0x0084000840008400),
-                (0x3333333333333333, 0x0000210002100021),
-                (0xaaaaaaaaaaaaaaaa, 0x0080200802008020),
-                (0x5555555555555555, 0x0004010040100401),
+                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
+                (0xffffffffffffffffffffffffffffffff, 0x01084210842108421084210842108421),
+                (0x0000000000000000ffffffffffffffff, 0x01084210842108421084210842108421),
+                (0x00000000ffffffff00000000ffffffff, 0x01084210842108421084210842108421),
+                (0x0000ffff0000ffff0000ffff0000ffff, 0x00000000000008421084210842108421),
+                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x00084210842100000000000842108421),
+                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x01000000842100000084210000008421),
+                (0x33333333333333333333333333333333, 0x01000210002100021000210002100021),
+                (0x55555555555555555555555555555555, 0x01004010040100401004010040100401),
             ],
 
             // D6
             vec![
-                (0xffffffffffffffff, 0x0041041041041041),
-                (0x0000000000000000, 0x0000000000000000),
-                (0xffffffff00000000, 0x0000000000000000),
-                (0x00000000ffffffff, 0x0041041041041041),
-                (0xffff0000ffff0000, 0x0000000000000000),
-                (0x0000ffff0000ffff, 0x0041041041041041),
-                (0xff00ff00ff00ff00, 0x0041000000000000),
-                (0x00ff00ff00ff00ff, 0x0000041041041041),
-                (0xf0f0f0f0f0f0f0f0, 0x0000041041000000),
-                (0x0f0f0f0f0f0f0f0f, 0x0041000000041041),
-                (0xcccccccccccccccc, 0x0000041000041000),
-                (0x3333333333333333, 0x0041000041000041),
-                (0xaaaaaaaaaaaaaaaa, 0x0040040040040040),
-                (0x5555555555555555, 0x0001001001001001),
+                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
+                (0xffffffffffffffffffffffffffffffff, 0x01041041041041041041041041041041),
+                (0x0000000000000000ffffffffffffffff, 0x01041041041041041041041041041041),
+                (0x00000000ffffffff00000000ffffffff, 0x01041041041041041041041041041041),
+                (0x0000ffff0000ffff0000ffff0000ffff, 0x00000000041041041041041041041041),
+                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x01041041000000000000041041041041),
+                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x00041041000000041041000000041041),
+                (0x33333333333333333333333333333333, 0x01000041000041000041000041000041),
+                (0x55555555555555555555555555555555, 0x01001001001001001001001001001001),
             ],
 
             // D7
             vec![
-                (0xffffffffffffffff, 0x0102040810204081),
-                (0x0000000000000000, 0x0000000000000000),
-                (0xffffffff00000000, 0x0000000000000000),
-                (0x00000000ffffffff, 0x0102040810204081),
-                (0xffff0000ffff0000, 0x0000000000000000),
-                (0x0000ffff0000ffff, 0x0102040810204081),
-                (0xff00ff00ff00ff00, 0x0100000000000000),
-                (0x00ff00ff00ff00ff, 0x0002040810204081),
-                (0xf0f0f0f0f0f0f0f0, 0x0002040810000000),
-                (0x0f0f0f0f0f0f0f0f, 0x0100000000204081),
-                (0xcccccccccccccccc, 0x0002040000204000),
-                (0x3333333333333333, 0x0100000810000081),
-                (0xaaaaaaaaaaaaaaaa, 0x0002000800200080),
-                (0x5555555555555555, 0x0100040010004001),
+                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
+                (0xffffffffffffffffffffffffffffffff, 0x00810204081020408102040810204081),
+                (0x0000000000000000ffffffffffffffff, 0x00810204081020408102040810204081),
+                (0x00000000ffffffff00000000ffffffff, 0x00810204081020408102040810204081),
+                (0x0000ffff0000ffff0000ffff0000ffff, 0x00000204081020408102040810204081),
+                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x00810000000000000002040810204081),
+                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x00810000000020408100000000204081),
+                (0x33333333333333333333333333333333, 0x00810000081000008100000810000081),
+                (0x55555555555555555555555555555555, 0x00010004001000400100040010004001),
             ],
 
             // D8
             vec![
-                (0xffffffffffffffff, 0x0101010101010101),
-                (0x0000000000000000, 0x0000000000000000),
-                (0xffffffff00000000, 0x0000000000000000),
-                (0x00000000ffffffff, 0x0101010101010101),
-                (0xffff0000ffff0000, 0x0000000000000000),
-                (0x0000ffff0000ffff, 0x0101010101010101),
-                (0xff00ff00ff00ff00, 0x0000000000000000),
-                (0x00ff00ff00ff00ff, 0x0101010101010101),
-                (0xf0f0f0f0f0f0f0f0, 0x0101010100000000),
-                (0x0f0f0f0f0f0f0f0f, 0x0000000001010101),
-                (0xcccccccccccccccc, 0x0101000001010000),
-                (0x3333333333333333, 0x0000010100000101),
-                (0xaaaaaaaaaaaaaaaa, 0x0100010001000100),
-                (0x5555555555555555, 0x0001000100010001),
+                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
+                (0xffffffffffffffffffffffffffffffff, 0x01010101010101010101010101010101),
+                (0x0000000000000000ffffffffffffffff, 0x01010101010101010101010101010101),
+                (0x00000000ffffffff00000000ffffffff, 0x01010101010101010101010101010101),
+                (0x0000ffff0000ffff0000ffff0000ffff, 0x01010101010101010101010101010101),
+                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x00000000000000000101010101010101),
+                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x00000000010101010000000001010101),
+                (0x33333333333333333333333333333333, 0x00000101000001010000010100000101),
+                (0x55555555555555555555555555555555, 0x00010001000100010001000100010001),
             ],
         ];
     }
@@ -822,5 +793,6 @@ mod tests {
     integer_dilation_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
     integer_dilation_tests!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
     integer_dilation_tests!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
+    integer_dilation_tests!(u128, 1, 2, 3, 4, 5, 6, 7, 8);
     integer_dilation_tests!(usize, 1, 2, 3, 4, 5, 6, 7, 8);
 }
