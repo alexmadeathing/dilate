@@ -221,8 +221,8 @@ impl From<DilatedInt<u8, 2>> for u8 {
     fn from(dilated: DilatedInt<u8, 2>) -> Self {
         // See citation [1]
         let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x03) & Wrapping(0xCC >> 1);
-        v = v * Wrapping(0x05) & Wrapping(0xF0 >> 1);
+        v = v * Wrapping(0x03) & Wrapping(0x66);
+        v = v * Wrapping(0x05) & Wrapping(0x78);
         v.0 >> 3
     }
 }
@@ -232,9 +232,9 @@ impl From<DilatedInt<u16, 2>> for u16 {
     fn from(dilated: DilatedInt<u16, 2>) -> Self {
         // See citation [1]
         let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x003) & Wrapping(0xCCCC >> 1);
-        v = v * Wrapping(0x005) & Wrapping(0xF0F0 >> 1);
-        v = v * Wrapping(0x011) & Wrapping(0xFF00 >> 1);
+        v = v * Wrapping(0x003) & Wrapping(0x6666);
+        v = v * Wrapping(0x005) & Wrapping(0x7878);
+        v = v * Wrapping(0x011) & Wrapping(0x7f80);
         v.0 >> 7
     }
 }
@@ -244,10 +244,10 @@ impl From<DilatedInt<u32, 2>> for u32 {
     fn from(dilated: DilatedInt<u32, 2>) -> Self {
         // See citation [1]
         let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x00000003) & Wrapping(0xCCCCCCCC >> 1);
-        v = v * Wrapping(0x00000005) & Wrapping(0xF0F0F0F0 >> 1);
-        v = v * Wrapping(0x00000011) & Wrapping(0xFF00FF00 >> 1);
-        v = v * Wrapping(0x00000101) & Wrapping(0xFFFF0000 >> 1);
+        v = v * Wrapping(0x00000003) & Wrapping(0x66666666);
+        v = v * Wrapping(0x00000005) & Wrapping(0x78787878);
+        v = v * Wrapping(0x00000011) & Wrapping(0x7F807F80);
+        v = v * Wrapping(0x00000101) & Wrapping(0x7FFF8000);
         v.0 >> 15
     }
 }
@@ -257,11 +257,11 @@ impl From<DilatedInt<u64, 2>> for u64 {
     fn from(dilated: DilatedInt<u64, 2>) -> Self {
         // See citation [1]
         let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x00003) & Wrapping(0xCCCCCCCCCCCCCCCC >> 1);
-        v = v * Wrapping(0x00005) & Wrapping(0xF0F0F0F0F0F0F0F0 >> 1);
-        v = v * Wrapping(0x00011) & Wrapping(0xFF00FF00FF00FF00 >> 1);
-        v = v * Wrapping(0x00101) & Wrapping(0xFFFF0000FFFF0000 >> 1);
-        v = v * Wrapping(0x10001) & Wrapping(0xFFFFFFFF00000000 >> 1);
+        v = v * Wrapping(0x00003) & Wrapping(0x6666666666666666);
+        v = v * Wrapping(0x00005) & Wrapping(0x7878787878787878);
+        v = v * Wrapping(0x00011) & Wrapping(0x7F807F807F807F80);
+        v = v * Wrapping(0x00101) & Wrapping(0x7FFF80007FFF8000);
+        v = v * Wrapping(0x10001) & Wrapping(0x7FFFFFFF80000000);
         v.0 >> 31
     }
 }
@@ -271,12 +271,12 @@ impl From<DilatedInt<u128, 2>> for u128 {
     fn from(dilated: DilatedInt<u128, 2>) -> Self {
         // See citation [1]
         let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x000000003) & Wrapping(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC >> 1);
-        v = v * Wrapping(0x000000005) & Wrapping(0xF0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0 >> 1);
-        v = v * Wrapping(0x000000011) & Wrapping(0xFF00FF00FF00FF00FF00FF00FF00FF00 >> 1);
-        v = v * Wrapping(0x000000101) & Wrapping(0xFFFF0000FFFF0000FFFF0000FFFF0000 >> 1);
-        v = v * Wrapping(0x000010001) & Wrapping(0xFFFFFFFF00000000FFFFFFFF00000000 >> 1);
-        v = v * Wrapping(0x100000001) & Wrapping(0xFFFFFFFFFFFFFFFF0000000000000000 >> 1);
+        v = v * Wrapping(0x000000003) & Wrapping(0x66666666666666666666666666666666);
+        v = v * Wrapping(0x000000005) & Wrapping(0x78787878787878787878787878787878);
+        v = v * Wrapping(0x000000011) & Wrapping(0x7f807f807f807f807f807f807f807f80);
+        v = v * Wrapping(0x000000101) & Wrapping(0x7fff80007fff80007fff80007fff8000);
+        v = v * Wrapping(0x000010001) & Wrapping(0x7fffffff800000007fffffff80000000);
+        v = v * Wrapping(0x100000001) & Wrapping(0x7fffffffffffffff8000000000000000);
         v.0 >> 63
     }
 }
