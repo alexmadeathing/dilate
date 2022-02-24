@@ -2,11 +2,10 @@
 [![Anti-Capitalist Software License (v 1.4)](https://img.shields.io/badge/license-Anti--Capitalist%20(v%201.4)-brightgreen)](LICENSE.md)
 [![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=shield)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
 
-# WARNING
-This library is in alpha. It is feature complete at a basic level, but may be subject to change.
-
 # dilate
 A compact, high performance integer dilation library for Rust.
+
+_NOTE - This library is in alpha. It is feature complete at a basic level, but may be subject to change._
 
 Integer dilation is the process of converting cartesian indices (eg. coordinates) into a format suitable for use in D-dimensional [Morton Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences. The dilation process takes an integer's bit sequence and inserts a number of 0 bits (D - 1) between each original bit successively. Thus, the original bit sequence becomes evenly padded. For example:
 * `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
