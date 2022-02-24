@@ -1,3 +1,4 @@
+[![Crates.io](https://img.shields.io/crates/d/dilate.svg)](https://crates.io/crates/dilate)
 [![Anti-Capitalist Software License (v 1.4)](https://img.shields.io/badge/license-Anti--Capitalist%20(v%201.4)-brightgreen)](LICENSE.md)
 [![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=shield)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
 
@@ -24,8 +25,32 @@ This library provides efficient casting to and from ordinary integer representat
 * Trait based implementation - Conforms to standard Rust implementation patterns
 * No dependencies - Depends on Rust standard library only
 
-# Docs
-TODO
+# Getting Started
+First, link [dilate](https://crates.io/crates/dilate) into your project via cargo. Or by cloning this repository and linking via a direct path. Eg.
+In your cargo.toml:
+```
+[dependencies]
+dilate = "0.3.0"
+```
+
+Or:
+```
+[dependencies]
+dilate = "path/to/repository"
+```
+
+Next, import dilate into your project and try out some of the features:
+
+```
+use dilate::*;
+
+let dilated = DilatedInt::<u32, 2>::from(0b1101);
+assert_eq!(dilated.0, 0b1010001);
+ 
+assert_eq!(u32::from(dilated), 0b1101);
+```
+
+For more detailed info, please see the [code reference](https://docs.rs/dilate/latest/dilate/).
 
 # Roadmap
 Please refer to the [Roadmap to V1.0](https://github.com/alexmadeathing/dilate/discussions/2) discussion.
