@@ -28,22 +28,10 @@ This library provides efficient casting to and from ordinary integer representat
 # Getting Started
 First, link dilate into your project's cargo.toml.
 
-Via [crates.io](https://crates.io/crates/dilate):
+Check for the latest version at [crates.io](https://crates.io/crates/dilate):
 ```
 [dependencies]
 dilate = "0.3.0"
-```
-
-Via git link:
-```
-[dependencies]
-dilate = "https://github.com/alexmadeathing/dilate.git"
-```
-
-Or via a direct path to a cloned copy of this repository:
-```
-[dependencies]
-dilate = "path/to/repository"
 ```
 
 Next, import dilate into your project and try out some of the features:
