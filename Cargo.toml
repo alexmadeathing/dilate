@@ -2,7 +2,7 @@
 name = "dilate"
 version = "0.3.0"
 edition = "2021"
-license = "Anti-Capitalist Software License (v 1.4)"
+license-file = "LICENSE.md"
 description = "A compact, high performance integer dilation library for Rust."
 homepage = "https://github.com/alexmadeathing/dilate"
 repository = "https://github.com/alexmadeathing/dilate"
