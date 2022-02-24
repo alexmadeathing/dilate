@@ -26,15 +26,21 @@ This library provides efficient casting to and from ordinary integer representat
 * No dependencies - Depends on Rust standard library only
 
 # Getting Started
-First, link dilate into your project via cargo. Or by cloning this repository and linking via a direct path. Eg.
-In your cargo.toml:
+First, link dilate into your project's cargo.toml.
+
+Via [crates.io](https://crates.io/crates/dilate):
 ```
 [dependencies]
 dilate = "0.3.0"
 ```
-**Recommended:** Use the [latest version at crates.io](https://crates.io/crates/dilate).
 
-Or:
+Via git link:
+```
+[dependencies]
+dilate = "https://github.com/alexmadeathing/dilate.git"
+```
+
+Or via a direct path to a cloned copy of this repository:
 ```
 [dependencies]
 dilate = "path/to/repository"
