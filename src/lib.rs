@@ -46,7 +46,7 @@
 //! coordinates) into a format suitable for use in D-dimensional [Morton
 //! Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences. The
 //! dilation process takes an integer's bit sequence and inserts a number of 0
-//! bits (D - 1) between each original bit successively. Thus, the original bit
+//! bits (`D - 1`) between each original bit successively. Thus, the original bit
 //! sequence becomes evenly padded. For example:
 //! * `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
 //! * `0b1011` D3-dilated becomes `0b1000001001`

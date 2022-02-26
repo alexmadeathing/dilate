@@ -14,7 +14,7 @@ Integer dilation is the process of converting cartesian indices (eg.
 coordinates) into a format suitable for use in D-dimensional [Morton
 Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences. The
 dilation process takes an integer's bit sequence and inserts a number of 0
-bits (D - 1) between each original bit successively. Thus, the original bit
+bits (`D - 1`) between each original bit successively. Thus, the original bit
 sequence becomes evenly padded. For example:
 * `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
 * `0b1011` D3-dilated becomes `0b1000001001`
@@ -25,8 +25,8 @@ The process of undilation, or 'contraction', does the opposite:
 
 # Goals
 * High performance - Ready to use in performance sensitive contexts
-* Multiple types - Supports u8, u16, u32, u64, u128, usize (signed versions not yet planned)
-* N-dimensional - Suitable for multi-dimensional applications (up to 8 dimensions)
+* Multiple types - Supports `u8`, `u16`, `u32`, `u64`, `u128`, `usize` (signed versions not yet planned)
+* N-dimensional - Suitable for multi-dimensional applications (up to 16 dimensions when `T = u8`)
 * Trait based implementation - Conforms to standard Rust implementation patterns
 * No dependencies - Depends on Rust standard library only
 
