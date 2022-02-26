@@ -7,15 +7,21 @@ A compact, high performance integer dilation library for Rust.
 
 _NOTE - This library is in alpha. It is feature complete at a basic level, but may be subject to change._
 
-Integer dilation is the process of converting cartesian indices (eg. coordinates) into a format suitable for use in D-dimensional [Morton Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences. The dilation process takes an integer's bit sequence and inserts a number of 0 bits (D - 1) between each original bit successively. Thus, the original bit sequence becomes evenly padded. For example:
+This library provides efficient casting to and from dilated representation
+as well as various efficient mathematical operations between dilated integers.
+
+Integer dilation is the process of converting cartesian indices (eg.
+coordinates) into a format suitable for use in D-dimensional [Morton
+Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences. The
+dilation process takes an integer's bit sequence and inserts a number of 0
+bits (D - 1) between each original bit successively. Thus, the original bit
+sequence becomes evenly padded. For example:
 * `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
 * `0b1011` D3-dilated becomes `0b1000001001`
 
 The process of undilation, or 'contraction', does the opposite:
 * `0b1010001` D2-contracted becomes `0b1101`
 * `0b1000001001` D3-contracted becomes `0b1011`
-
-This library provides efficient casting to and from ordinary integer representation as well as various efficient mathematical operations between dilated integers.
 
 # Goals
 * High performance - Ready to use in performance sensitive contexts
