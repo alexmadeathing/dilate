@@ -1,6 +1,6 @@
 [package]
 name = "dilate"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 license-file = "LICENSE.md"
 description = "A compact, high performance integer dilation library for Rust."
@@ -16,7 +16,5 @@ keywords = ["morton", "integer", "dilate", "dilation", "octree"]
 [dependencies]
 
 [dev-dependencies]
-serde = { version = "1.0.136", features = ["derive"] } # For test data serialisation
-serde_json = "1.0.78" # For test data serialisation
-lazy_static = "1.4.0" # For test data serialisation
-paste = "1.0.6" # For generation of multi-dimensional, multi-type, tests
+lazy_static = "1.4.0" # For test data
+paste = "1.0.6" # For generation of multi-dimensional, multi-type, test names

@@ -36,7 +36,7 @@ First, link dilate into your project's cargo.toml.
 Check for the latest version at [crates.io](https://crates.io/crates/dilate):
 ```
 [dependencies]
-dilate = "0.3.0"
+dilate = "0.4.0"
 ```
 
 Next, import dilate into your project and try out some of the features:
