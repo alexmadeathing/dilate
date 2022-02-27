@@ -2,10 +2,11 @@
 [![Anti-Capitalist Software License (v 1.4)](https://img.shields.io/badge/license-Anti--Capitalist%20(v%201.4)-brightgreen)](LICENSE.md)
 [![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=shield)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
 
+# NOTE
+This library is in pre-alpha. It is feature complete at a basic level, its interface may be subject to change.
+
 # dilate
 A compact, high performance integer dilation library for Rust.
-
-_NOTE - This library is in alpha. It is feature complete at a basic level, but may be subject to change._
 
 This library provides efficient casting to and from dilated representation
 as well as various efficient mathematical operations between dilated integers.
