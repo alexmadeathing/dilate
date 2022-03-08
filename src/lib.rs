@@ -40,7 +40,8 @@
 //! A compact, high performance integer dilation library for Rust.
 //! 
 //! This library provides efficient casting to and from dilated representation
-//! as well as various efficient mathematical operations between dilated integers.
+//! in various forms as well as several efficient mathematical operations
+//! between dilated integers.
 //! 
 //! Integer dilation is the process of converting cartesian indices (eg.
 //! coordinates) into a format suitable for use in D-dimensional [Morton
@@ -51,9 +52,9 @@
 //! * `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
 //! * `0b1011` D3-dilated becomes `0b1000001001`
 //! 
-//! The process of undilation, or 'contraction', does the opposite:
-//! * `0b1010001` D2-contracted becomes `0b1101`
-//! * `0b1000001001` D3-contracted becomes `0b1011`
+//! The process of undilation, or 'undilateion', does the opposite:
+//! * `0b1010001` D2-undilated becomes `0b1101`
+//! * `0b1000001001` D3-undilated becomes `0b1011`
 //! 
 //! The size required to store the dilated version of an integer is determined
 //! by the size in bits `S` of the integer multiplied by the dilation amount `D`.
@@ -68,66 +69,148 @@
 //! 
 //! Example 2-Dilation Usage:
 //! ```
-//! use dilate::DilatedInt;
+//! use dilate::{Adapter, DilateExpand, Undilate};
 //! 
-//! let dilated = DilatedInt::<u32, 2>::from(0b1101);
+//! let original: u8 = 0b1101;
+//! 
+//! let dilated = original.dilate_expand::<2>();
 //! assert_eq!(dilated.0, 0b1010001);
 //! 
-//! assert_eq!(u32::from(dilated), 0b1101);
+//! assert_eq!(dilated.undilate(), original);
 //! ```
 //! 
 //! Example 3-Dilation Usage:
 //! ```
-//! use dilate::DilatedInt;
+//! use dilate::{Adapter, DilateExpand, Undilate};
 //! 
-//! let dilated = DilatedInt::<u32, 3>::from(0b1011);
+//! let original: u8 = 0b1011;
+//! 
+//! let dilated = original.dilate_expand::<3>();
 //! assert_eq!(dilated.0, 0b1000001001);
 //! 
-//! assert_eq!(u32::from(dilated), 0b1011);
+//! assert_eq!(dilated.undilate(), original);
 //! ```
 
-use std::fmt;
-use std::{mem::size_of, num::Wrapping};
+mod consts;
+mod internal;
 
-use std::ops::{Add, AddAssign, Sub, SubAssign, BitAnd, Not};
+use std::{fmt, marker::PhantomData, ops::{Add, Not, BitAnd, AddAssign, Sub, SubAssign}, num::Wrapping};
+use consts::{build_fixed_undilated_max, build_dilated_mask};
 
-mod const_generation;
-use const_generation::{
-    build_dilated_mask, dilate_mask, dilate_max_round, dilate_mult,
-    undilate_mask, undilate_max_round, undilate_mult, undilate_shift,
-};
+pub trait SupportedType: internal::DilateExplicit + internal::UndilateExplicit { }
+impl SupportedType for u8 { }
+impl SupportedType for u16 { }
+impl SupportedType for u32 { }
+impl SupportedType for u64 { }
+impl SupportedType for u128 { }
+impl SupportedType for usize { }
 
-/// Determines inner type required to store D-dilated T values
-pub trait Inner<const D: usize> {
-    /// Inner type required to store D-dilated T values
-    type Type: Copy + Eq + Ord + std::hash::Hash + Default + std::fmt::Debug;
+pub trait Adapter {
+    type Outer: SupportedType;
+    type Inner: SupportedType;
+    const D: usize;
+    const UNDILATED_BITS: usize;
+    const UNDILATED_MAX: Self::Outer;
+    const DILATED_BITS: usize;
+
+    /// The `DILATED_MAX` constant holds a set of N dilated 1 bits, each
+    /// separated by D-1 0 bits, where N is equal to DILATED_BITS.
+    /// 
+    /// When using Expand<T, D>, DILATED_MAX is the dilated equivalent
+    /// of T::MAX.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use dilate::{Adapter, Expand, Fixed};
+    /// 
+    /// assert_eq!(Expand::<u8, 2>::DILATED_MAX, 0b0101010101010101);
+    /// assert_eq!(Expand::<u16, 3>::DILATED_MAX, 0b001001001001001001001001001001001001001001001001);
+    /// 
+    /// assert_eq!(Fixed::<u8, 2>::DILATED_MAX, 0b01010101);
+    /// assert_eq!(Fixed::<u16, 3>::DILATED_MAX, 0b0001001001001001);
+    /// ```
+    const DILATED_MAX: Self::Inner;
+
+    fn dilate(value: Self::Outer) -> Self::Inner;
+    fn undilate(value: Self::Inner) -> Self::Outer;
 }
 
-macro_rules! impl_inner {
+#[derive(Debug, PartialEq, Eq)]
+pub struct Expand<T, const D: usize>(PhantomData<T>) where T: SupportedType;
+
+macro_rules! impl_expand {
     ($outer:ty, $(($d:literal, $inner:ty)),+) => {$(
-        impl Inner<$d> for $outer {
-            type Type = $inner;
+        impl Adapter for Expand<$outer, $d> {
+            type Outer = $outer;
+            type Inner = $inner;
+            const D: usize = $d;
+            const UNDILATED_BITS: usize = <$outer>::BITS as usize;
+            const UNDILATED_MAX: Self::Outer = <$outer>::MAX;
+            const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
+            const DILATED_MAX: Self::Inner = build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Inner;
+
+            #[inline]
+            fn dilate(value: Self::Outer) -> Self::Inner {
+                internal::dilate::<Self::Inner, $d>(value as Self::Inner)
+            }
+
+            #[inline]
+            fn undilate(value: Self::Inner) -> Self::Outer {
+                internal::undilate::<Self::Inner, $d>(value) as Self::Outer
+            }
         }
     )+}
 }
 
-impl_inner!(u8, (1, u8), (2, u16), (3, u32), (4, u32), (5, u64), (6, u64), (7, u64), (8, u64), (9, u128), (10, u128), (11, u128), (12, u128), (13, u128), (14, u128), (15, u128), (16, u128));
-impl_inner!(u16, (1, u16), (2, u32), (3, u64), (4, u64), (5, u128), (6, u128), (7, u128), (8, u128));
-impl_inner!(u32, (1, u32), (2, u64), (3, u128), (4, u128));
-impl_inner!(u64, (1, u64), (2, u128));
-impl_inner!(u128, (1, u128));
+impl_expand!(u8, (1, u8), (2, u16), (3, u32), (4, u32), (5, u64), (6, u64), (7, u64), (8, u64), (9, u128), (10, u128), (11, u128), (12, u128), (13, u128), (14, u128), (15, u128), (16, u128));
+impl_expand!(u16, (1, u16), (2, u32), (3, u64), (4, u64), (5, u128), (6, u128), (7, u128), (8, u128));
+impl_expand!(u32, (1, u32), (2, u64), (3, u128), (4, u128));
+impl_expand!(u64, (1, u64), (2, u128));
+impl_expand!(u128, (1, u128));
 
 #[cfg(target_pointer_width = "16")]
-impl_inner!(usize, (1, u16), (2, u32), (3, u64), (4, u64), (5, u128), (6, u128), (7, u128), (8, u128));
+impl_expand!(usize, (1, u16), (2, u32), (3, u64), (4, u64), (5, u128), (6, u128), (7, u128), (8, u128));
 
 #[cfg(target_pointer_width = "32")]
-impl_inner!(usize, (1, u32), (2, u64), (3, u128), (4, u128));
+impl_expand!(usize, (1, u32), (2, u64), (3, u128), (4, u128));
 
 #[cfg(target_pointer_width = "64")]
-impl_inner!(usize, (1, u64), (2, u128));
+impl_expand!(usize, (1, u64), (2, u128));
 
-#[cfg(target_pointer_width = "128")]
-impl_inner!(usize, (1, u128));
+#[derive(Debug, PartialEq, Eq)]
+pub struct Fixed<T, const D: usize>(PhantomData<T>) where T: SupportedType;
+
+macro_rules! impl_fixed {
+    ($t:ty, $($d:literal),+) => {$(
+        impl Adapter for Fixed<$t, $d> {
+            type Outer = $t;
+            type Inner = $t;
+            const D: usize = $d;
+            const UNDILATED_BITS: usize = <$t>::BITS as usize / $d;
+            const UNDILATED_MAX: Self::Outer = build_fixed_undilated_max::<$t, $d>() as $t;
+            const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
+            const DILATED_MAX: Self::Inner = build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Inner;
+
+            #[inline]
+            fn dilate(value: Self::Outer) -> Self::Inner {
+                internal::dilate::<Self::Inner, $d>(value)
+            }
+
+            #[inline]
+            fn undilate(value: Self::Inner) -> Self::Outer {
+                internal::undilate::<Self::Inner, $d>(value)
+            }
+        }
+    )+}
+}
+
+impl_fixed!(u8, 1, 2, 3, 4);
+impl_fixed!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
+impl_fixed!(u32, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_fixed!(u64, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_fixed!(u128, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_fixed!(usize, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 
 /// The primary interface for dilating and undilating integers.
 /// 
@@ -142,22 +225,26 @@ impl_inner!(usize, (1, u128));
 /// 
 /// Example 2-Dilation Usage:
 /// ```
-/// use dilate::DilatedInt;
+/// use dilate::{Adapter, DilateExpand, Undilate};
 /// 
-/// let dilated = DilatedInt::<u32, 2>::from(0b1101);
+/// let original: u8 = 0b1101;
+/// 
+/// let dilated = original.dilate_expand::<2>();
 /// assert_eq!(dilated.0, 0b1010001);
 /// 
-/// assert_eq!(u32::from(dilated), 0b1101);
+/// assert_eq!(dilated.undilate(), original);
 /// ```
 /// 
 /// Example 3-Dilation Usage:
 /// ```
-/// use dilate::DilatedInt;
+/// use dilate::{Adapter, DilateExpand, Undilate};
 /// 
-/// let dilated = DilatedInt::<u32, 3>::from(0b1011);
+/// let original: u8 = 0b1011;
+/// 
+/// let dilated = original.dilate_expand::<3>();
 /// assert_eq!(dilated.0, 0b1000001001);
 /// 
-/// assert_eq!(u32::from(dilated), 0b1011);
+/// assert_eq!(dilated.undilate(), original);
 /// ```
 // 
 // NOTE - Not exposing this to docs yet as example is quite involved
@@ -179,412 +266,98 @@ impl_inner!(usize, (1, u128));
 // ```
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DilatedInt<T, const D: usize>(pub <T as Inner<D>>::Type) where T: Inner<D>;
+pub struct DilatedInt<A>(pub A::Inner) where A: Adapter;
 
-impl<T, const D: usize> fmt::Display for DilatedInt<T, D> where T: Inner<D>, <T as Inner<D>>::Type: fmt::Display {
+impl<A> fmt::Display for DilatedInt<A> where A: Adapter, A::Inner: fmt::Display {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-/// Provides access to the mask of dilated bits
-/// 
-/// The DilatedMask trait is implemented for DilatedInt for all supported types
-/// and all values of D.
-pub trait DilatedMask<T, const D: usize> where T: Inner<D> {
-    /// The `dilated_mask()` function returns a set of dilated N 1 bits, each
-    /// separated by D-1 0 bits, where N is equal to T::BITS. It is the dilated
-    /// equivalent of T::MAX.
-    /// This function is zero cost and will most likely be reduced by the compiler to
-    /// a single constant value.
-    /// 
-    /// # Examples
-    /// 
-    /// ```
-    /// use dilate::{DilatedInt, DilatedMask};
-    /// 
-    /// assert_eq!(DilatedInt::<u8, 2>::dilated_mask(), 0b0101010101010101);
-    /// assert_eq!(DilatedInt::<u16, 3>::dilated_mask(), 0b001001001001001001001001001001001001001001001001);
-    /// ```
-    fn dilated_mask() -> <T as Inner<D>>::Type;
-}
-
-macro_rules! dilated_int_mask_impls {
-    ($t:ty, $($d:literal),+) => {$(
-        impl DilatedMask<$t, $d> for DilatedInt<$t, $d> {
-            #[inline]
-            fn dilated_mask() -> <$t as Inner<$d>>::Type {
-                build_dilated_mask(size_of::<$t>() * 8, $d) as <$t as Inner<$d>>::Type
-            }
-        }
-    )+}
-}
-dilated_int_mask_impls!(u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
-dilated_int_mask_impls!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
-dilated_int_mask_impls!(u32, 1, 2, 3, 4);
-dilated_int_mask_impls!(u64, 1, 2);
-dilated_int_mask_impls!(u128, 1);
-#[cfg(target_pointer_width = "16")]
-dilated_int_mask_impls!(usize, 1, 2, 3, 4, 5, 6, 7, 8);
-#[cfg(target_pointer_width = "32")]
-dilated_int_mask_impls!(usize, 1, 2, 3, 4);
-#[cfg(target_pointer_width = "64")]
-dilated_int_mask_impls!(usize, 1, 2);
-#[cfg(target_pointer_width = "128")]
-dilated_int_mask_impls!(usize, 1);
-
-// ============================================================================
-// Implement From for D 1 dilated integers (no dilation - provided for easier
-// compatibility with user systems that allow D 1 operations)
-macro_rules! dilated_int_d1_from_impls {
-    ($($t:ty),+) => {$(
-        // From $t to dilated $t
-        impl From<$t> for DilatedInt<$t, 1> {
-            #[inline]
-            fn from(value: $t) -> Self {
-                Self(value)
-            }
-        }
-
-        // From dilated $t to $t
-        impl From<DilatedInt<$t, 1>> for $t {
-            #[inline]
-            fn from(dilated: DilatedInt<$t, 1>) -> Self {
-                dilated.0
-            }
-        }
-    )+}
-}
-dilated_int_d1_from_impls!(u8, u16, u32, u64, u128);
-
-// ============================================================================
-// Implement From for D 2 dilated integers
-impl From<u8> for DilatedInt<u8, 2> {
+pub trait DilateExpand: SupportedType {
     #[inline]
-    fn from(value: u8) -> Self {
-        // See citation [2]
-        let mut v = value as u16;
-        v = (v | (v << 4)) & 0x0F0F;
-        v = (v | (v << 2)) & 0x3333;
-        v = (v | (v << 1)) & 0x5555;
-        Self(v)
+    fn dilate_expand<const D: usize>(self) -> DilatedInt<Expand<Self, D>> where Expand::<Self, D>: Adapter<Outer = Self> {
+        DilatedInt::<Expand<Self, D>>(Expand::<Self, D>::dilate(self))
     }
 }
 
-impl From<u16> for DilatedInt<u16, 2> {
+impl<T> DilateExpand for T where T: SupportedType { }
+
+pub trait DilateFixed: SupportedType {
     #[inline]
-    fn from(value: u16) -> Self {
-        // See citation [2]
-        let mut v = value as u32;
-        v = (v | (v << 8)) & 0x00FF00FF;
-        v = (v | (v << 4)) & 0x0F0F0F0F;
-        v = (v | (v << 2)) & 0x33333333;
-        v = (v | (v << 1)) & 0x55555555;
-        Self(v)
+    fn dilate_fixed<const D: usize>(self) -> DilatedInt<Fixed<Self, D>> where Fixed::<Self, D>: Adapter<Outer = Self> {
+        DilatedInt::<Fixed<Self, D>>(Fixed::<Self, D>::dilate(self))
     }
 }
 
-impl From<u32> for DilatedInt<u32, 2> {
-    #[inline]
-    fn from(value: u32) -> Self {
-        // See citation [2]
-        let mut v = value as u64;
-        v = (v | (v << 16)) & 0x0000FFFF0000FFFF;
-        v = (v | (v << 08)) & 0x00FF00FF00FF00FF;
-        v = (v | (v << 04)) & 0x0F0F0F0F0F0F0F0F;
-        v = (v | (v << 02)) & 0x3333333333333333;
-        v = (v | (v << 01)) & 0x5555555555555555;
-        Self(v)
+impl<T> DilateFixed for T where T: SupportedType { }
+
+pub trait Undilate {
+    type Output;
+
+    fn undilate(self) -> Self::Output;
+}
+
+impl<A> Undilate for DilatedInt<A> where A: Adapter {
+    type Output = A::Outer;
+
+    fn undilate(self) -> Self::Output {
+        A::undilate(self.0)
     }
 }
-
-impl From<u64> for DilatedInt<u64, 2> {
-    #[inline]
-    fn from(value: u64) -> Self {
-        // See citation [2]
-        let mut v = value as u128;
-        v = (v | (v << 32)) & 0x00000000FFFFFFFF00000000FFFFFFFF;
-        v = (v | (v << 16)) & 0x0000FFFF0000FFFF0000FFFF0000FFFF;
-        v = (v | (v << 08)) & 0x00FF00FF00FF00FF00FF00FF00FF00FF;
-        v = (v | (v << 04)) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F;
-        v = (v | (v << 02)) & 0x33333333333333333333333333333333;
-        v = (v | (v << 01)) & 0x55555555555555555555555555555555;
-        Self(v)
-    }
-}
-
-impl From<DilatedInt<u8, 2>> for u8 {
-    #[inline]
-    fn from(dilated: DilatedInt<u8, 2>) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x003) & Wrapping(0x6666);
-        v = v * Wrapping(0x005) & Wrapping(0x7878);
-        v = v * Wrapping(0x011) & Wrapping(0x7f80);
-        (v.0 >> 7) as u8
-    }
-}
-
-impl From<DilatedInt<u16, 2>> for u16 {
-    #[inline]
-    fn from(dilated: DilatedInt<u16, 2>) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x00000003) & Wrapping(0x66666666);
-        v = v * Wrapping(0x00000005) & Wrapping(0x78787878);
-        v = v * Wrapping(0x00000011) & Wrapping(0x7F807F80);
-        v = v * Wrapping(0x00000101) & Wrapping(0x7FFF8000);
-        (v.0 >> 15) as u16
-    }
-}
-
-impl From<DilatedInt<u32, 2>> for u32 {
-    #[inline]
-    fn from(dilated: DilatedInt<u32, 2>) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x00003) & Wrapping(0x6666666666666666);
-        v = v * Wrapping(0x00005) & Wrapping(0x7878787878787878);
-        v = v * Wrapping(0x00011) & Wrapping(0x7F807F807F807F80);
-        v = v * Wrapping(0x00101) & Wrapping(0x7FFF80007FFF8000);
-        v = v * Wrapping(0x10001) & Wrapping(0x7FFFFFFF80000000);
-        (v.0 >> 31) as u32
-    }
-}
-
-impl From<DilatedInt<u64, 2>> for u64 {
-    #[inline]
-    fn from(dilated: DilatedInt<u64, 2>) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(dilated.0);
-        v = v * Wrapping(0x000000003) & Wrapping(0x66666666666666666666666666666666);
-        v = v * Wrapping(0x000000005) & Wrapping(0x78787878787878787878787878787878);
-        v = v * Wrapping(0x000000011) & Wrapping(0x7f807f807f807f807f807f807f807f80);
-        v = v * Wrapping(0x000000101) & Wrapping(0x7fff80007fff80007fff80007fff8000);
-        v = v * Wrapping(0x000010001) & Wrapping(0x7fffffff800000007fffffff80000000);
-        v = v * Wrapping(0x100000001) & Wrapping(0x7fffffffffffffff8000000000000000);
-        (v.0 >> 63) as u64
-    }
-}
-
-// ============================================================================
-// Implement From for D 3 dilated integers
-impl From<u8> for DilatedInt<u8, 3> {
-    #[inline]
-    fn from(value: u8) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(value as u32);
-        v = (v * Wrapping(0x10001)) & Wrapping(0xFF0000FF);
-        v = (v * Wrapping(0x00101)) & Wrapping(0x0F00F00F);
-        v = (v * Wrapping(0x00011)) & Wrapping(0xC30C30C3);
-        v = (v * Wrapping(0x00005)) & Wrapping(0x49249249);
-        Self(v.0)
-    }
-}
-
-impl From<u16> for DilatedInt<u16, 3> {
-    #[inline]
-    fn from(value: u16) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(value as u64);
-        v = (v * Wrapping(0x100000001)) & Wrapping(0xFFFF00000000FFFF);
-        v = (v * Wrapping(0x000010001)) & Wrapping(0x00FF0000FF0000FF);
-        v = (v * Wrapping(0x000000101)) & Wrapping(0xF00F00F00F00F00F);
-        v = (v * Wrapping(0x000000011)) & Wrapping(0x30C30C30C30C30C3);
-        v = (v * Wrapping(0x000000005)) & Wrapping(0x9249249249249249);
-        Self(v.0)
-    }
-}
-
-impl From<u32> for DilatedInt<u32, 3> {
-    #[inline]
-    fn from(value: u32) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(value as u128);
-        v = (v * Wrapping(0x10000000000000001)) & Wrapping(0xFFFFFFFF0000000000000000FFFFFFFF);
-        v = (v * Wrapping(0x00000000100000001)) & Wrapping(0x0000FFFF00000000FFFF00000000FFFF);
-        v = (v * Wrapping(0x00000000000010001)) & Wrapping(0xFF0000FF0000FF0000FF0000FF0000FF);
-        v = (v * Wrapping(0x00000000000000101)) & Wrapping(0x0F00F00F00F00F00F00F00F00F00F00F);
-        v = (v * Wrapping(0x00000000000000011)) & Wrapping(0xC30C30C30C30C30C30C30C30C30C30C3);
-        v = (v * Wrapping(0x00000000000000005)) & Wrapping(0x49249249249249249249249249249249);
-        Self(v.0)
-    }
-}
-
-impl From<DilatedInt<u8, 3>> for u8 {
-    #[inline]
-    fn from(dilated: DilatedInt<u8, 3>) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(dilated.0);
-        v = (v * Wrapping(0x00015)) & Wrapping(0x0E070381);
-        v = (v * Wrapping(0x01041)) & Wrapping(0x0FF80001);
-        v = (v * Wrapping(0x40001)) & Wrapping(0x0FFFFFFE);
-        (v.0 >> 18) as u8
-    }
-}
-
-impl From<DilatedInt<u16, 3>> for u16 {
-    #[inline]
-    fn from(dilated: DilatedInt<u16, 3>) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(dilated.0);
-        v = (v * Wrapping(0x0000000000000015)) & Wrapping(0x1c0e070381c0e070);
-        v = (v * Wrapping(0x0000000000001041)) & Wrapping(0x1ff00003fe00007f);
-        v = (v * Wrapping(0x0000001000040001)) & Wrapping(0x1ffffffc00000000);
-        (v.0 >> 40) as u16
-    }
-}
-
-impl From<DilatedInt<u32, 3>> for u32 {
-    #[inline]
-    fn from(dilated: DilatedInt<u32, 3>) -> Self {
-        // See citation [1]
-        let mut v = Wrapping(dilated.0);
-        v = (v * Wrapping(0x00000000000000000000000000000015))
-            & Wrapping(0x0e070381c0e070381c0e070381c0e070);
-        v = (v * Wrapping(0x00000000000000000000000000001041))
-            & Wrapping(0x0ff80001ff00003fe00007fc0000ff80);
-        v = (v * Wrapping(0x00000000000000000000001000040001))
-            & Wrapping(0x0ffffffe00000000000007ffffff0000);
-        v = (v * Wrapping(0x00001000000000000040000000000001))
-            & Wrapping(0x0ffffffffffffffffffff80000000000);
-        (v.0 >> 82) as u32
-    }
-}
-
-// ============================================================================
-// Implement From for DN dilated integers
-// Until we have stable specialization, this must be implemented manually
-macro_rules! dilated_int_dn_from_impls {
-    ($t:ty, $($d:literal),+) => {$(
-        impl From<$t> for DilatedInt<$t, $d> {
-            #[inline]
-            fn from(value: $t) -> Self {
-                type InnerT = <$t as Inner<$d>>::Type;
-                let mut v = Wrapping(value as InnerT);
-                let mut i = 0;
-                while i <= dilate_max_round::<InnerT, $d>() {
-                    v = (v * Wrapping(dilate_mult::<InnerT, $d>(i) as InnerT)) & Wrapping(dilate_mask::<InnerT, $d>(i) as InnerT);
-                    i += 1;
-                }
-
-                Self(v.0)
-            }
-        }
-
-        impl From<DilatedInt<$t, $d>> for $t {
-            #[inline]
-            fn from(dilated: DilatedInt<$t, $d>) -> $t {
-                type InnerT = <$t as Inner<$d>>::Type;
-                let mut v = Wrapping(dilated.0);
-                let mut i = 0;
-                while i <= undilate_max_round::<InnerT, $d>() {
-                    v = (v * Wrapping(undilate_mult::<InnerT, $d>(i) as InnerT)) & Wrapping(undilate_mask::<InnerT, $d>(i) as InnerT);
-                    i += 1;
-                }
-
-                (v.0 >> undilate_shift::<InnerT, $d>() as InnerT) as $t
-            }
-        }
-    )+}
-}
-
-// D 1, 2, 3 cases handled separately
-dilated_int_dn_from_impls!(u8, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
-dilated_int_dn_from_impls!(u16, 4, 5, 6, 7, 8);
-dilated_int_dn_from_impls!(u32, 4);
-
-// ============================================================================
-
-macro_rules! dilated_int_usize_from_impls {
-    ($t:ty, $($d:literal),+) => {$(
-        impl From<usize> for DilatedInt<usize, $d> {
-            #[inline]
-            fn from(value: usize) -> Self {
-                Self(DilatedInt::<$t, $d>::from(value as $t).0 as <usize as Inner<$d>>::Type)
-            }
-        }
-
-        impl From<DilatedInt<usize, $d>> for usize {
-            fn from(dilated: DilatedInt<usize, $d>) -> Self {
-                <$t>::from(DilatedInt::<$t, $d>(dilated.0 as <$t as Inner<$d>>::Type)) as usize
-            }
-        }
-    )+}
-}
-
-// Bootstrap usize (16 bit)
-#[cfg(target_pointer_width = "16")]
-dilated_int_usize_from_impls!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
-
-// Bootstrap usize (32 bit)
-#[cfg(target_pointer_width = "32")]
-dilated_int_usize_from_impls!(u32, 1, 2, 3, 4);
-
-// Bootstrap usize (64 bit)
-#[cfg(target_pointer_width = "64")]
-dilated_int_usize_from_impls!(u64, 1, 2);
-
-// Bootstrap usize (128 bit) - Is this even worth it?
-#[cfg(target_pointer_width = "128")]
-dilated_int_usize_from_impls!(u128, 1);
 
 // ============================================================================
 // Arithmetic trait impls
 
-impl<T, const D: usize> Add for DilatedInt<T, D>
+impl<A> Add for DilatedInt<A>
 where
-    Self: DilatedMask<T, D>,
-    T: Inner<D>,
-    <T as Inner<D>>::Type: Copy + Default + Not<Output = <T as Inner<D>>::Type> + BitAnd<Output = <T as Inner<D>>::Type>,
-    Wrapping<<T as Inner<D>>::Type>: Add<Output = Wrapping<<T as Inner<D>>::Type>>
+    A: Adapter,
+    A::Inner: Copy + Default + Not<Output = A::Inner> + BitAnd<Output = A::Inner>,
+    Wrapping<A::Inner>: Add<Output = Wrapping<A::Inner>>
 {
     type Output = Self;
 
     #[inline]
     fn add(self, rhs: Self) -> Self::Output {
-        Self((Wrapping(self.0) + Wrapping(!Self::dilated_mask()) + Wrapping(rhs.0)).0 & Self::dilated_mask())
+        Self((Wrapping(self.0) + Wrapping(!A::DILATED_MAX) + Wrapping(rhs.0)).0 & A::DILATED_MAX)
     }
 }
 
-impl<T, const D: usize> AddAssign for DilatedInt<T, D>
+impl<A> AddAssign for DilatedInt<A>
 where
-    Self: DilatedMask<T, D>,
-    T: Inner<D>,
-    <T as Inner<D>>::Type: Copy + Default + Not<Output = <T as Inner<D>>::Type> + BitAnd<Output = <T as Inner<D>>::Type>,
-    Wrapping<<T as Inner<D>>::Type>: Add<Output = Wrapping<<T as Inner<D>>::Type>>
+    A: Adapter,
+    A::Inner: Copy + Default + Not<Output = A::Inner> + BitAnd<Output = A::Inner>,
+    Wrapping<A::Inner>: Add<Output = Wrapping<A::Inner>>
 {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
-        self.0 = (Wrapping(self.0) + Wrapping(!Self::dilated_mask()) + Wrapping(rhs.0)).0 & Self::dilated_mask();
+        self.0 = (Wrapping(self.0) + Wrapping(!A::DILATED_MAX) + Wrapping(rhs.0)).0 & A::DILATED_MAX;
     }
 }
 
-impl<T, const D: usize> Sub for DilatedInt<T, D>
+impl<A> Sub for DilatedInt<A>
 where
-    Self: DilatedMask<T, D>,
-    T: Inner<D>,
-    <T as Inner<D>>::Type: Copy + Default + BitAnd<Output = <T as Inner<D>>::Type>,
-    Wrapping<<T as Inner<D>>::Type>: Sub<Output = Wrapping<<T as Inner<D>>::Type>>
+    A: Adapter,
+    A::Inner: Copy + Default + BitAnd<Output = A::Inner>,
+    Wrapping<A::Inner>: Sub<Output = Wrapping<A::Inner>>
 {
     type Output = Self;
 
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
-        Self((Wrapping(self.0) - Wrapping(rhs.0)).0 & Self::dilated_mask())
+        Self((Wrapping(self.0) - Wrapping(rhs.0)).0 & A::DILATED_MAX)
     }
 }
 
-impl<T, const D: usize> SubAssign for DilatedInt<T, D>
+impl<A> SubAssign for DilatedInt<A>
 where
-    Self: DilatedMask<T, D>,
-    T: Inner<D>,
-    <T as Inner<D>>::Type: Copy + Default + BitAnd<Output = <T as Inner<D>>::Type>,
-    Wrapping<<T as Inner<D>>::Type>: Sub<Output = Wrapping<<T as Inner<D>>::Type>>
+    A: Adapter,
+    A::Inner: Copy + Default + BitAnd<Output = A::Inner>,
+    Wrapping<A::Inner>: Sub<Output = Wrapping<A::Inner>>
 {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
-        self.0 = (Wrapping(self.0) - Wrapping(rhs.0)).0 & Self::dilated_mask();
+        self.0 = (Wrapping(self.0) - Wrapping(rhs.0)).0 & A::DILATED_MAX;
     }
 }
 
@@ -595,76 +368,34 @@ mod tests {
     use lazy_static::lazy_static;
     use paste::paste;
 
-    use super::Inner;
+    use super::{Adapter, Expand, Fixed};
 
-    struct TestData<T, const D: usize> {
+    // ========================================================================
+    // SHARED DILATION TEST DATA
+    
+    struct TestData<T> where T: Adapter {
         marker: PhantomData<T>,
     }
     
     macro_rules! impl_test_data {
-        ($t:ty, $d:literal, $dilated_mask:expr) => {
-            impl TestData<$t, $d> {
+        ($adapter_t:ty, $dil_max:expr, $con_max:expr) => {
+            impl TestData<$adapter_t> {
                 #[inline]
-                fn dilated_mask() -> <$t as Inner<$d>>::Type {
-                    $dilated_mask
+                fn dilated_max() -> <$adapter_t as Adapter>::Inner {
+                    $dil_max
+                }
+
+                #[inline]
+                fn undilated_max() -> <$adapter_t as Adapter>::Outer {
+                    $con_max
                 }
             }
         };
     }
-    impl_test_data!(u8, 01, 0xff);
-    impl_test_data!(u8, 02, 0x5555);
-    impl_test_data!(u8, 03, 0x00249249);
-    impl_test_data!(u8, 04, 0x11111111);
-    impl_test_data!(u8, 05, 0x0000000842108421);
-    impl_test_data!(u8, 06, 0x0000041041041041);
-    impl_test_data!(u8, 07, 0x0002040810204081);
-    impl_test_data!(u8, 08, 0x0101010101010101);
-    // If testing up to 16 dimensions, these can be uncommented
-//    impl_test_data!(u8, 09, 0x00000000000000008040201008040201);
-//    impl_test_data!(u8, 10, 0x00000000000000401004010040100401);
-//    impl_test_data!(u8, 11, 0x00000000000020040080100200400801);
-//    impl_test_data!(u8, 12, 0x00000000001001001001001001001001);
-//    impl_test_data!(u8, 13, 0x00000000080040020010008004002001);
-//    impl_test_data!(u8, 14, 0x00000004001000400100040010004001);
-//    impl_test_data!(u8, 15, 0x00000200040008001000200040008001);
-//    impl_test_data!(u8, 16, 0x00010001000100010001000100010001);
-
-    impl_test_data!(u16, 1, 0xffff);
-    impl_test_data!(u16, 2, 0x55555555);
-    impl_test_data!(u16, 3, 0x0000249249249249);
-    impl_test_data!(u16, 4, 0x1111111111111111);
-    impl_test_data!(u16, 5, 0x00000000000008421084210842108421);
-    impl_test_data!(u16, 6, 0x00000000041041041041041041041041);
-    impl_test_data!(u16, 7, 0x00000204081020408102040810204081);
-    impl_test_data!(u16, 8, 0x01010101010101010101010101010101);
-
-    impl_test_data!(u32, 1, 0xffffffff);
-    impl_test_data!(u32, 2, 0x5555555555555555);
-    impl_test_data!(u32, 3, 0x00000000249249249249249249249249);
-    impl_test_data!(u32, 4, 0x11111111111111111111111111111111);
-
-    impl_test_data!(u64, 1, 0xffffffffffffffff);
-    impl_test_data!(u64, 2, 0x55555555555555555555555555555555);
-
-    impl_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff);
-
-    macro_rules! impl_test_data_usize {
-        ($innert:ty, $($d:literal),+) => {$(
-            impl_test_data!(usize, $d, TestData::<$innert, $d>::dilated_mask() as <usize as Inner<$d>>::Type);
-        )+}
-    }
-    #[cfg(target_pointer_width = "16")]
-    impl_test_data_usize!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
-    #[cfg(target_pointer_width = "32")]
-    impl_test_data_usize!(u32, 1, 2, 3, 4);
-    #[cfg(target_pointer_width = "64")]
-    impl_test_data_usize!(u64, 1, 2);
-    #[cfg(target_pointer_width = "128")]
-    impl_test_data_usize!(u128, 1);
-
+    
     // NOTE - The following test cases are shared between all types (up to D8)
-    //        For undilated values, we simply cast to the target type
-    //        For dilated values, we cast to the target inner type and mask with dilated_mask()
+    //        For undilated values, we simply cast to the target type (and mask with undilated_max() for Fixed adapters)
+    //        For dilated values, we cast to the target inner type and mask with dilated_max()
     //        This procedure ensures that the test data is 100% valid in all cases
     //        Furthermore, every test case is xor'd with every other test case to
     //        perform more tests with fewer hand written values
@@ -870,40 +601,97 @@ mod tests {
         ],
     ];
 
-    macro_rules! integer_dilation_tests {
+    // ========================================================================
+    // EXPAND DILATION TESTS
+    
+    impl_test_data!(Expand<u8, 01>, 0xff, u8::MAX);
+    impl_test_data!(Expand<u8, 02>, 0x5555, u8::MAX);
+    impl_test_data!(Expand<u8, 03>, 0x00249249, u8::MAX);
+    impl_test_data!(Expand<u8, 04>, 0x11111111, u8::MAX);
+    impl_test_data!(Expand<u8, 05>, 0x0000000842108421, u8::MAX);
+    impl_test_data!(Expand<u8, 06>, 0x0000041041041041, u8::MAX);
+    impl_test_data!(Expand<u8, 07>, 0x0002040810204081, u8::MAX);
+    impl_test_data!(Expand<u8, 08>, 0x0101010101010101, u8::MAX);
+    // If testing up to 16 dimensions, these can be uncommented
+//    impl_test_data!(Expand<u8, 09>, 0x00000000000000008040201008040201, u8::MAX);
+//    impl_test_data!(Expand<u8, 10>, 0x00000000000000401004010040100401, u8::MAX);
+//    impl_test_data!(Expand<u8, 11>, 0x00000000000020040080100200400801, u8::MAX);
+//    impl_test_data!(Expand<u8, 12>, 0x00000000001001001001001001001001, u8::MAX);
+//    impl_test_data!(Expand<u8, 13>, 0x00000000080040020010008004002001, u8::MAX);
+//    impl_test_data!(Expand<u8, 14>, 0x00000004001000400100040010004001, u8::MAX);
+//    impl_test_data!(Expand<u8, 15>, 0x00000200040008001000200040008001, u8::MAX);
+//    impl_test_data!(Expand<u8, 16>, 0x00010001000100010001000100010001, u8::MAX);
+
+    impl_test_data!(Expand<u16, 1>, 0xffff, u16::MAX);
+    impl_test_data!(Expand<u16, 2>, 0x55555555, u16::MAX);
+    impl_test_data!(Expand<u16, 3>, 0x0000249249249249, u16::MAX);
+    impl_test_data!(Expand<u16, 4>, 0x1111111111111111, u16::MAX);
+    impl_test_data!(Expand<u16, 5>, 0x00000000000008421084210842108421, u16::MAX);
+    impl_test_data!(Expand<u16, 6>, 0x00000000041041041041041041041041, u16::MAX);
+    impl_test_data!(Expand<u16, 7>, 0x00000204081020408102040810204081, u16::MAX);
+    impl_test_data!(Expand<u16, 8>, 0x01010101010101010101010101010101, u16::MAX);
+
+    impl_test_data!(Expand<u32, 1>, 0xffffffff, u32::MAX);
+    impl_test_data!(Expand<u32, 2>, 0x5555555555555555, u32::MAX);
+    impl_test_data!(Expand<u32, 3>, 0x00000000249249249249249249249249, u32::MAX);
+    impl_test_data!(Expand<u32, 4>, 0x11111111111111111111111111111111, u32::MAX);
+
+    impl_test_data!(Expand<u64, 1>, 0xffffffffffffffff, u64::MAX);
+    impl_test_data!(Expand<u64, 2>, 0x55555555555555555555555555555555, u64::MAX);
+
+    impl_test_data!(Expand<u128, 1>, 0xffffffffffffffffffffffffffffffff, u128::MAX);
+
+    macro_rules! impl_expand_test_data_usize {
+        ($emulated_t:ty, $($d:literal),+) => {$(
+            impl_test_data!(Expand<usize, $d>, TestData::<Expand<$emulated_t, $d>>::dilated_max() as <Expand<usize, $d> as Adapter>::Inner, TestData::<Expand<$emulated_t, $d>>::undilated_max() as <Expand<usize, $d> as Adapter>::Outer);
+        )+}
+    }
+    #[cfg(target_pointer_width = "16")]
+    impl_expand_test_data_usize!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
+    #[cfg(target_pointer_width = "32")]
+    impl_expand_test_data_usize!(u32, 1, 2, 3, 4);
+    #[cfg(target_pointer_width = "64")]
+    impl_expand_test_data_usize!(u64, 1, 2);
+
+    macro_rules! impl_expand_dilated_int_tests {
         ($t:ty, $($d:literal),+) => {$(
             paste! {
-                mod [< $t _d $d >] {
+                mod [< expand_ $t _d $d >] {
                     use super::{TestData, DILATION_UNDILATION_TEST_CASES, VALUES};
-                    use super::super::{Inner, DilatedInt, DilatedMask};
+                    use super::super::{Adapter, Expand, DilatedInt, DilateExpand, Undilate};
 
                     #[test]
-                    fn dilated_mask_correct() {
-                        assert_eq!(DilatedInt::<$t, $d>::dilated_mask(), TestData::<$t, $d>::dilated_mask());
+                    fn undilated_max_is_correct() {
+                        assert_eq!(Expand::<$t, $d>::UNDILATED_MAX, TestData::<Expand<$t, $d>>::undilated_max());
                     }
 
                     #[test]
-                    fn from_raw_int_is_correct() {
+                    fn dilated_max_is_correct() {
+                        assert_eq!(Expand::<$t, $d>::DILATED_MAX, TestData::<Expand<$t, $d>>::dilated_max());
+                    }
+
+                    #[test]
+                    fn dilate_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
                         for (undilated_a, dilated_a) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
                             for (undilated_b, dilated_b) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t;
-                                let dilated = (*dilated_a ^ *dilated_b) as <$t as Inner<$d>>::Type & TestData::<$t, $d>::dilated_mask();
-
-                                assert_eq!(DilatedInt::<$t, $d>::from(undilated).0, dilated);
+                                let dilated = (*dilated_a ^ *dilated_b) as <Expand<$t, $d> as Adapter>::Inner & TestData::<Expand<$t, $d>>::dilated_max();
+                                assert_eq!(Expand::<$t, $d>::dilate(undilated), dilated);
+                                assert_eq!(undilated.dilate_expand::<$d>(), DilatedInt::<Expand<$t, $d>>(dilated));
                             }
                         }
                     }
 
                     #[test]
-                    fn to_raw_int_is_correct() {
+                    fn undilate_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
                         for (undilated_a, dilated_a) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
                             for (undilated_b, dilated_b) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t;
-                                let dilated = (*dilated_a ^ *dilated_b) as <$t as Inner<$d>>::Type & TestData::<$t, $d>::dilated_mask();
-
-                                assert_eq!($t::from(DilatedInt::<$t, $d>(dilated)), undilated);
+                                let dilated = (*dilated_a ^ *dilated_b) as <Expand<$t, $d> as Adapter>::Inner & TestData::<Expand<$t, $d>>::dilated_max();
+                                assert_eq!(Expand::<$t, $d>::undilate(dilated), undilated);
+                                assert_eq!(DilatedInt::<Expand<$t, $d>>(dilated).undilate(), undilated);
                             }
                         }
                     }
@@ -920,15 +708,15 @@ mod tests {
                             (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 + 0 = 2
                             (VALUES[$d][2], VALUES[$d][1], VALUES[$d][3]), // 2 + 1 = 3
                             (VALUES[$d][2], VALUES[$d][2], VALUES[$d][4]), // 2 + 2 = 4
-                            (TestData::<$t, $d>::dilated_mask() as u128, VALUES[$d][1], VALUES[$d][0]), // max + 1 = 0
+                            (TestData::<Expand<$t, $d>>::dilated_max() as u128, VALUES[$d][1], VALUES[$d][0]), // max + 1 = 0
                         ];
 
                         // Some formats won't support arithmetic (for example u8 D8)
                         // So we have to filter to ensure they support all numbers involved with a particular test case
-                        let mask_u128 = TestData::<$t, $d>::dilated_mask() as u128;
+                        let mask_u128 = TestData::<Expand<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type InnerT = <$t as Inner<$d>>::Type;
-                            assert_eq!(DilatedInt::<$t, $d>(*a as InnerT) + DilatedInt::<$t, $d>(*b as InnerT), DilatedInt::<$t, $d>(*ans as InnerT));
+                            type InnerT = <Expand<$t, $d> as Adapter>::Inner;
+                            assert_eq!(DilatedInt::<Expand<$t, $d>>(*a as InnerT) + DilatedInt::<Expand<$t, $d>>(*b as InnerT), DilatedInt::<Expand<$t, $d>>(*ans as InnerT));
                         }
                     }
 
@@ -944,17 +732,17 @@ mod tests {
                             (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 += 0 = 2
                             (VALUES[$d][2], VALUES[$d][1], VALUES[$d][3]), // 2 += 1 = 3
                             (VALUES[$d][2], VALUES[$d][2], VALUES[$d][4]), // 2 += 2 = 4
-                            (TestData::<$t, $d>::dilated_mask() as u128, VALUES[$d][1], VALUES[$d][0]), // max += 1 = 0
+                            (TestData::<Expand<$t, $d>>::dilated_max() as u128, VALUES[$d][1], VALUES[$d][0]), // max += 1 = 0
                         ];
 
                         // Some formats won't support arithmetic (for example u8 D8)
                         // So we have to filter to ensure they support all numbers involved with a particular test case
-                        let mask_u128 = TestData::<$t, $d>::dilated_mask() as u128;
+                        let mask_u128 = TestData::<Expand<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type InnerT = <$t as Inner<$d>>::Type;
-                            let mut assigned = DilatedInt::<$t, $d>(*a as InnerT);
-                            assigned += DilatedInt::<$t, $d>(*b as InnerT);
-                            assert_eq!(assigned, DilatedInt::<$t, $d>(*ans as InnerT));
+                            type InnerT = <Expand<$t, $d> as Adapter>::Inner;
+                            let mut assigned = DilatedInt::<Expand<$t, $d>>(*a as InnerT);
+                            assigned += DilatedInt::<Expand<$t, $d>>(*b as InnerT);
+                            assert_eq!(assigned, DilatedInt::<Expand<$t, $d>>(*ans as InnerT));
                         }
                     }
 
@@ -970,15 +758,15 @@ mod tests {
                             (VALUES[$d][4], VALUES[$d][0], VALUES[$d][4]), // 4 - 0 = 4
                             (VALUES[$d][4], VALUES[$d][1], VALUES[$d][3]), // 4 - 1 = 3
                             (VALUES[$d][4], VALUES[$d][2], VALUES[$d][2]), // 4 - 2 = 2
-                            (VALUES[$d][0], VALUES[$d][1], TestData::<$t, $d>::dilated_mask() as u128), // 0 - 1 = max
+                            (VALUES[$d][0], VALUES[$d][1], TestData::<Expand<$t, $d>>::dilated_max() as u128), // 0 - 1 = max
                         ];
 
                         // Some formats won't support arithmetic (for example u8 D8)
                         // So we have to filter to ensure they support all numbers involved with a particular test case
-                        let mask_u128 = TestData::<$t, $d>::dilated_mask() as u128;
+                        let mask_u128 = TestData::<Expand<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type InnerT = <$t as Inner<$d>>::Type;
-                            assert_eq!(DilatedInt::<$t, $d>(*a as InnerT) - DilatedInt::<$t, $d>(*b as InnerT), DilatedInt::<$t, $d>(*ans as InnerT));
+                            type InnerT = <Expand<$t, $d> as Adapter>::Inner;
+                            assert_eq!(DilatedInt::<Expand<$t, $d>>(*a as InnerT) - DilatedInt::<Expand<$t, $d>>(*b as InnerT), DilatedInt::<Expand<$t, $d>>(*ans as InnerT));
                         }
                     }
 
@@ -994,17 +782,17 @@ mod tests {
                             (VALUES[$d][4], VALUES[$d][0], VALUES[$d][4]), // 4 -= 0 = 4
                             (VALUES[$d][4], VALUES[$d][1], VALUES[$d][3]), // 4 -= 1 = 3
                             (VALUES[$d][4], VALUES[$d][2], VALUES[$d][2]), // 4 -= 2 = 2
-                            (VALUES[$d][0], VALUES[$d][1], TestData::<$t, $d>::dilated_mask() as u128), // 0 -= 1 = max
+                            (VALUES[$d][0], VALUES[$d][1], TestData::<Expand<$t, $d>>::dilated_max() as u128), // 0 -= 1 = max
                         ];
 
                         // Some formats won't support arithmetic (for example u8 D8)
                         // So we have to filter to ensure they support all numbers involved with a particular test case
-                        let mask_u128 = TestData::<$t, $d>::dilated_mask() as u128;
+                        let mask_u128 = TestData::<Expand<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type InnerT = <$t as Inner<$d>>::Type;
-                            let mut assigned = DilatedInt::<$t, $d>(*a as InnerT);
-                            assigned -= DilatedInt::<$t, $d>(*b as InnerT);
-                            assert_eq!(assigned, DilatedInt::<$t, $d>(*ans as InnerT));
+                            type InnerT = <Expand<$t, $d> as Adapter>::Inner;
+                            let mut assigned = DilatedInt::<Expand<$t, $d>>(*a as InnerT);
+                            assigned -= DilatedInt::<Expand<$t, $d>>(*b as InnerT);
+                            assert_eq!(assigned, DilatedInt::<Expand<$t, $d>>(*ans as InnerT));
                         }
                     }
                 }
@@ -1012,18 +800,225 @@ mod tests {
         )+}
     }
     // Technically, u8 can go up to 16 dimensions, but that would double the amount of inline test data
-    integer_dilation_tests!(u8, 1, 2, 3, 4, 5, 6, 7, 8);
-    integer_dilation_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
-    integer_dilation_tests!(u32, 1, 2, 3, 4);
-    integer_dilation_tests!(u64, 1, 2);
-    integer_dilation_tests!(u128, 1);
+    impl_expand_dilated_int_tests!(u8, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_expand_dilated_int_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_expand_dilated_int_tests!(u32, 1, 2, 3, 4);
+    impl_expand_dilated_int_tests!(u64, 1, 2);
+    impl_expand_dilated_int_tests!(u128, 1);
 
     #[cfg(target_pointer_width = "16")]
-    integer_dilation_tests!(usize, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_expand_dilated_int_tests!(usize, 1, 2, 3, 4, 5, 6, 7, 8);
     #[cfg(target_pointer_width = "32")]
-    integer_dilation_tests!(usize, 1, 2, 3, 4);
+    impl_expand_dilated_int_tests!(usize, 1, 2, 3, 4);
     #[cfg(target_pointer_width = "64")]
-    integer_dilation_tests!(usize, 1, 2);
-    #[cfg(target_pointer_width = "128")]
-    integer_dilation_tests!(usize, 1);
+    impl_expand_dilated_int_tests!(usize, 1, 2);
+
+    // ========================================================================
+    // FIXED DILATION TESTS
+
+    impl_test_data!(Fixed<u8, 01>, 0xff, 0xff);
+    impl_test_data!(Fixed<u8, 02>, 0x55, 0x0f);
+    impl_test_data!(Fixed<u8, 03>, 0x09, 0x03);
+    impl_test_data!(Fixed<u8, 04>, 0x11, 0x03);
+
+    impl_test_data!(Fixed<u16, 1>, 0xffff, 0xffff);
+    impl_test_data!(Fixed<u16, 2>, 0x5555, 0x00ff);
+    impl_test_data!(Fixed<u16, 3>, 0x1249, 0x001f);
+    impl_test_data!(Fixed<u16, 4>, 0x1111, 0x000f);
+    impl_test_data!(Fixed<u16, 5>, 0x0421, 0x0007);
+    impl_test_data!(Fixed<u16, 6>, 0x0041, 0x0003);
+    impl_test_data!(Fixed<u16, 7>, 0x0081, 0x0003);
+    impl_test_data!(Fixed<u16, 8>, 0x0101, 0x0003);
+
+    impl_test_data!(Fixed<u32, 1>, 0xffffffff, 0xffffffff);
+    impl_test_data!(Fixed<u32, 2>, 0x55555555, 0x0000ffff);
+    impl_test_data!(Fixed<u32, 3>, 0x09249249, 0x000003ff);
+    impl_test_data!(Fixed<u32, 4>, 0x11111111, 0x000000ff);
+    impl_test_data!(Fixed<u32, 5>, 0x02108421, 0x0000003f);
+    impl_test_data!(Fixed<u32, 6>, 0x01041041, 0x0000001f);
+    impl_test_data!(Fixed<u32, 7>, 0x00204081, 0x0000000f);
+    impl_test_data!(Fixed<u32, 8>, 0x01010101, 0x0000000f);
+
+    impl_test_data!(Fixed<u64, 1>, 0xffffffffffffffff, 0xffffffffffffffff);
+    impl_test_data!(Fixed<u64, 2>, 0x5555555555555555, 0x00000000ffffffff);
+    impl_test_data!(Fixed<u64, 3>, 0x1249249249249249, 0x00000000001fffff);
+    impl_test_data!(Fixed<u64, 4>, 0x1111111111111111, 0x000000000000ffff);
+    impl_test_data!(Fixed<u64, 5>, 0x0084210842108421, 0x0000000000000fff);
+    impl_test_data!(Fixed<u64, 6>, 0x0041041041041041, 0x00000000000003ff);
+    impl_test_data!(Fixed<u64, 7>, 0x0102040810204081, 0x00000000000001ff);
+    impl_test_data!(Fixed<u64, 8>, 0x0101010101010101, 0x00000000000000ff);
+
+    impl_test_data!(Fixed<u128, 1>, 0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff);
+    impl_test_data!(Fixed<u128, 2>, 0x55555555555555555555555555555555, 0x0000000000000000ffffffffffffffff);
+    impl_test_data!(Fixed<u128, 3>, 0x09249249249249249249249249249249, 0x0000000000000000000003ffffffffff);
+    impl_test_data!(Fixed<u128, 4>, 0x11111111111111111111111111111111, 0x000000000000000000000000ffffffff);
+    impl_test_data!(Fixed<u128, 5>, 0x01084210842108421084210842108421, 0x00000000000000000000000001ffffff);
+    impl_test_data!(Fixed<u128, 6>, 0x01041041041041041041041041041041, 0x000000000000000000000000001fffff);
+    impl_test_data!(Fixed<u128, 7>, 0x00810204081020408102040810204081, 0x0000000000000000000000000003ffff);
+    impl_test_data!(Fixed<u128, 8>, 0x01010101010101010101010101010101, 0x0000000000000000000000000000ffff);
+
+    macro_rules! impl_fixed_test_data_usize {
+        ($emulated_t:ty, $($d:literal),+) => {$(
+            impl_test_data!(Fixed<usize, $d>, TestData::<Fixed<$emulated_t, $d>>::dilated_max() as <Fixed<usize, $d> as Adapter>::Inner, TestData::<Fixed<$emulated_t, $d>>::undilated_max() as <Fixed<usize, $d> as Adapter>::Inner);
+        )+}
+    }
+    #[cfg(target_pointer_width = "16")]
+    impl_fixed_test_data_usize!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
+    #[cfg(target_pointer_width = "32")]
+    impl_fixed_test_data_usize!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
+    #[cfg(target_pointer_width = "64")]
+    impl_fixed_test_data_usize!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
+
+    macro_rules! impl_fixed_dilated_int_tests {
+        ($t:ty, $($d:literal),+) => {$(
+            paste! {
+                mod [< fixed_ $t _d $d >] {
+                    use super::{TestData, DILATION_UNDILATION_TEST_CASES, VALUES};
+                    use super::super::{Adapter, Fixed, DilatedInt, DilateFixed, Undilate};
+
+                    #[test]
+                    fn undilated_max_is_correct() {
+                        assert_eq!(Fixed::<$t, $d>::UNDILATED_MAX, TestData::<Fixed<$t, $d>>::undilated_max());
+                    }
+
+                    #[test]
+                    fn dilated_max_is_correct() {
+                        assert_eq!(Fixed::<$t, $d>::DILATED_MAX, TestData::<Fixed<$t, $d>>::dilated_max());
+                    }
+
+                    #[test]
+                    fn dilate_is_correct() {
+                        // To create many more valid test cases, we doubly iterate all of them and xor the values
+                        for (undilated_a, dilated_a) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
+                            for (undilated_b, dilated_b) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
+                                let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<Fixed<$t, $d>>::undilated_max();
+                                let dilated = (*dilated_a ^ *dilated_b) as <Fixed<$t, $d> as Adapter>::Inner & TestData::<Fixed<$t, $d>>::dilated_max();
+                                assert_eq!(Fixed::<$t, $d>::dilate(undilated), dilated);
+                                assert_eq!(undilated.dilate_fixed::<$d>(), DilatedInt::<Fixed<$t, $d>>(dilated));
+                            }
+                        }
+                    }
+
+                    #[test]
+                    fn undilate_is_correct() {
+                        // To create many more valid test cases, we doubly iterate all of them and xor the values
+                        for (undilated_a, dilated_a) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
+                            for (undilated_b, dilated_b) in DILATION_UNDILATION_TEST_CASES[$d].iter() {
+                                let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<Fixed<$t, $d>>::undilated_max();
+                                let dilated = (*dilated_a ^ *dilated_b) as <Fixed<$t, $d> as Adapter>::Inner & TestData::<Fixed<$t, $d>>::dilated_max();
+                                assert_eq!(Fixed::<$t, $d>::undilate(dilated), undilated);
+                                assert_eq!(DilatedInt::<Fixed<$t, $d>>(dilated).undilate(), undilated);
+                            }
+                        }
+                    }
+
+                    #[test]
+                    fn add_is_correct() {
+                        let test_cases = [
+                            (VALUES[$d][0], VALUES[$d][0], VALUES[$d][0]), // 0 + 0 = 0
+                            (VALUES[$d][0], VALUES[$d][1], VALUES[$d][1]), // 0 + 1 = 1
+                            (VALUES[$d][0], VALUES[$d][2], VALUES[$d][2]), // 0 + 2 = 2
+                            (VALUES[$d][1], VALUES[$d][0], VALUES[$d][1]), // 1 + 0 = 1
+                            (VALUES[$d][1], VALUES[$d][1], VALUES[$d][2]), // 1 + 1 = 2
+                            (VALUES[$d][1], VALUES[$d][2], VALUES[$d][3]), // 1 + 2 = 3
+                            (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 + 0 = 2
+                            (VALUES[$d][2], VALUES[$d][1], VALUES[$d][3]), // 2 + 1 = 3
+                            (VALUES[$d][2], VALUES[$d][2], VALUES[$d][4]), // 2 + 2 = 4
+                            (TestData::<Fixed<$t, $d>>::dilated_max() as u128, VALUES[$d][1], VALUES[$d][0]), // max + 1 = 0
+                        ];
+
+                        // Some formats won't support arithmetic (for example u8 D8)
+                        // So we have to filter to ensure they support all numbers involved with a particular test case
+                        let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
+                        for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
+                            type InnerT = <Fixed<$t, $d> as Adapter>::Inner;
+                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(*a as InnerT) + DilatedInt::<Fixed<$t, $d>>(*b as InnerT), DilatedInt::<Fixed<$t, $d>>(*ans as InnerT));
+                        }
+                    }
+
+                    #[test]
+                    fn add_assign_is_correct() {
+                        let test_cases = [
+                            (VALUES[$d][0], VALUES[$d][0], VALUES[$d][0]), // 0 += 0 = 0
+                            (VALUES[$d][0], VALUES[$d][1], VALUES[$d][1]), // 0 += 1 = 1
+                            (VALUES[$d][0], VALUES[$d][2], VALUES[$d][2]), // 0 += 2 = 2
+                            (VALUES[$d][1], VALUES[$d][0], VALUES[$d][1]), // 1 += 0 = 1
+                            (VALUES[$d][1], VALUES[$d][1], VALUES[$d][2]), // 1 += 1 = 2
+                            (VALUES[$d][1], VALUES[$d][2], VALUES[$d][3]), // 1 += 2 = 3
+                            (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 += 0 = 2
+                            (VALUES[$d][2], VALUES[$d][1], VALUES[$d][3]), // 2 += 1 = 3
+                            (VALUES[$d][2], VALUES[$d][2], VALUES[$d][4]), // 2 += 2 = 4
+                            (TestData::<Fixed<$t, $d>>::dilated_max() as u128, VALUES[$d][1], VALUES[$d][0]), // max += 1 = 0
+                        ];
+
+                        // Some formats won't support arithmetic (for example u8 D8)
+                        // So we have to filter to ensure they support all numbers involved with a particular test case
+                        let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
+                        for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
+                            type InnerT = <Fixed<$t, $d> as Adapter>::Inner;
+                            let mut assigned = DilatedInt::<Fixed<$t, $d>>(*a as InnerT);
+                            assigned += DilatedInt::<Fixed<$t, $d>>(*b as InnerT);
+                            assert_eq!(assigned, DilatedInt::<Fixed<$t, $d>>(*ans as InnerT));
+                        }
+                    }
+
+                    #[test]
+                    fn sub_is_correct() {
+                        let test_cases = [
+                            (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 - 0 = 2
+                            (VALUES[$d][2], VALUES[$d][1], VALUES[$d][1]), // 2 - 1 = 1
+                            (VALUES[$d][2], VALUES[$d][2], VALUES[$d][0]), // 2 - 2 = 0
+                            (VALUES[$d][3], VALUES[$d][0], VALUES[$d][3]), // 3 - 0 = 3
+                            (VALUES[$d][3], VALUES[$d][1], VALUES[$d][2]), // 3 - 1 = 2
+                            (VALUES[$d][3], VALUES[$d][2], VALUES[$d][1]), // 3 - 2 = 1
+                            (VALUES[$d][4], VALUES[$d][0], VALUES[$d][4]), // 4 - 0 = 4
+                            (VALUES[$d][4], VALUES[$d][1], VALUES[$d][3]), // 4 - 1 = 3
+                            (VALUES[$d][4], VALUES[$d][2], VALUES[$d][2]), // 4 - 2 = 2
+                            (VALUES[$d][0], VALUES[$d][1], TestData::<Fixed<$t, $d>>::dilated_max() as u128), // 0 - 1 = max
+                        ];
+
+                        // Some formats won't support arithmetic (for example u8 D8)
+                        // So we have to filter to ensure they support all numbers involved with a particular test case
+                        let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
+                        for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
+                            type InnerT = <Fixed<$t, $d> as Adapter>::Inner;
+                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(*a as InnerT) - DilatedInt::<Fixed<$t, $d>>(*b as InnerT), DilatedInt::<Fixed<$t, $d>>(*ans as InnerT));
+                        }
+                    }
+
+                    #[test]
+                    fn sub_assign_is_correct() {
+                        let test_cases = [
+                            (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 -= 0 = 2
+                            (VALUES[$d][2], VALUES[$d][1], VALUES[$d][1]), // 2 -= 1 = 1
+                            (VALUES[$d][2], VALUES[$d][2], VALUES[$d][0]), // 2 -= 2 = 0
+                            (VALUES[$d][3], VALUES[$d][0], VALUES[$d][3]), // 3 -= 0 = 3
+                            (VALUES[$d][3], VALUES[$d][1], VALUES[$d][2]), // 3 -= 1 = 2
+                            (VALUES[$d][3], VALUES[$d][2], VALUES[$d][1]), // 3 -= 2 = 1
+                            (VALUES[$d][4], VALUES[$d][0], VALUES[$d][4]), // 4 -= 0 = 4
+                            (VALUES[$d][4], VALUES[$d][1], VALUES[$d][3]), // 4 -= 1 = 3
+                            (VALUES[$d][4], VALUES[$d][2], VALUES[$d][2]), // 4 -= 2 = 2
+                            (VALUES[$d][0], VALUES[$d][1], TestData::<Fixed<$t, $d>>::dilated_max() as u128), // 0 -= 1 = max
+                        ];
+
+                        // Some formats won't support arithmetic (for example u8 D8)
+                        // So we have to filter to ensure they support all numbers involved with a particular test case
+                        let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
+                        for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
+                            type InnerT = <Fixed<$t, $d> as Adapter>::Inner;
+                            let mut assigned = DilatedInt::<Fixed<$t, $d>>(*a as InnerT);
+                            assigned -= DilatedInt::<Fixed<$t, $d>>(*b as InnerT);
+                            assert_eq!(assigned, DilatedInt::<Fixed<$t, $d>>(*ans as InnerT));
+                        }
+                    }
+                }
+            }
+        )+}
+    }
+    impl_fixed_dilated_int_tests!(u8, 1, 2, 3, 4);
+    impl_fixed_dilated_int_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_fixed_dilated_int_tests!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_fixed_dilated_int_tests!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_fixed_dilated_int_tests!(u128, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_fixed_dilated_int_tests!(usize, 1, 2, 3, 4, 5, 6, 7, 8);
 }
