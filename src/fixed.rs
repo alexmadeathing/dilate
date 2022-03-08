@@ -37,29 +37,57 @@ use std::marker::PhantomData;
 
 use crate::{internal, SupportedType, Adapter, DilatedInt};
 
-/// Fixed<T, D> is an adapter which describes the pre-0.4.0 dilation implementation - the inner type is the same as the outer type and a limited subset of bits in the outer type can be dilated. This is useful when you want absolute control over the inner type used and want to fit as many dilated bits into the inner type as possible.
+/// Dilating using the Fixed adapter creates a dilated integer of the same type
+/// as the input integer, giving the user control over the storage type. The
+/// maximum number of dilatable input bits is defined by the adapter and depends
+/// on the combination of T and D.
+/// 
+/// ```
+/// use dilate::*;
+/// 
+/// assert_eq!(0b1101u16.dilate_fixed::<2>().0, 0b01010001);
+/// 
+/// assert_eq!(Fixed::<u16, 2>::dilate(0b1101).0, 0b01010001);
+/// ```
+/// *Two methods for dilating u16 into u16 using the Fixed adapter*
+/// Fixed<T, D> is an adapter which describes the pre-0.4.0 dilation implementation - the dilated type is the same as the undilated type and a limited subset of bits in the undilated type can be dilated. This is useful when you want absolute control over the dilated type used and want to fit as many dilated bits into the dilated type as possible.
+/// 
+/// # Which Adapter to Choose
+/// There are currently two types of Adapter. To help decide which is right for
+/// your application, consider the following:
+/// 
+/// Use [Expand] when you want all bits of the source integer to be dilated and
+/// you don't mind how the dilated integer is stored behind the scenes. This is
+/// the most intuitive method of interacting with dilated integers.
+/// 
+/// Use [Fixed] when you want control over the storage type and want to
+/// maximise the number of bits occupied within that storage type.
+/// [Fixed] is potentially more memory efficient than [Expand].
+/// 
+/// Notice that the difference between the two is that of focus; [Expand]
+/// focusses on maximising the usage of the source integer, whereas [Fixed]
+/// focusses on maximising the usage of the dilated integer.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Fixed<T, const D: usize>(PhantomData<T>) where T: SupportedType;
 
 macro_rules! impl_fixed {
     ($t:ty, $($d:literal),+) => {$(
         impl Adapter for Fixed<$t, $d> {
-            type Outer = $t;
-            type Inner = $t;
-            const D: usize = $d;
+            type Undilated = $t;
+            type Dilated = $t;
             const UNDILATED_BITS: usize = <$t>::BITS as usize / $d;
-            const UNDILATED_MAX: Self::Outer = internal::build_fixed_undilated_max::<$t, $d>() as $t;
+            const UNDILATED_MAX: Self::Undilated = internal::build_fixed_undilated_max::<$t, $d>() as $t;
             const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
-            const DILATED_MAX: Self::Inner = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Inner;
+            const DILATED_MAX: Self::Dilated = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
 
             #[inline]
-            fn dilate(value: Self::Outer) -> Self::Inner {
-                internal::dilate::<Self::Inner, $d>(value)
+            fn dilate(value: Self::Undilated) -> DilatedInt<Self> {
+                DilatedInt::<Self>(internal::dilate::<Self::Dilated, $d>(value))
             }
 
             #[inline]
-            fn undilate(value: Self::Inner) -> Self::Outer {
-                internal::undilate::<Self::Inner, $d>(value)
+            fn undilate(value: DilatedInt<Self>) -> Self::Undilated {
+                internal::undilate::<Self::Dilated, $d>(value.0)
             }
         }
     )+}
@@ -74,8 +102,8 @@ impl_fixed!(usize, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 
 pub trait DilateFixed: SupportedType {
     #[inline]
-    fn dilate_fixed<const D: usize>(self) -> DilatedInt<Fixed<Self, D>> where Fixed::<Self, D>: Adapter<Outer = Self> {
-        DilatedInt::<Fixed<Self, D>>(Fixed::<Self, D>::dilate(self))
+    fn dilate_fixed<const D: usize>(self) -> DilatedInt<Fixed<Self, D>> where Fixed::<Self, D>: Adapter<Undilated = Self> {
+        Fixed::<Self, D>::dilate(self)
     }
 }
 
@@ -131,7 +159,7 @@ mod tests {
 
     macro_rules! impl_fixed_test_data_usize {
         ($emulated_t:ty, $($d:literal),+) => {$(
-            impl_test_data!(Fixed<usize, $d>, TestData::<Fixed<$emulated_t, $d>>::dilated_max() as <Fixed<usize, $d> as Adapter>::Inner, TestData::<Fixed<$emulated_t, $d>>::undilated_max() as <Fixed<usize, $d> as Adapter>::Inner);
+            impl_test_data!(Fixed<usize, $d>, TestData::<Fixed<$emulated_t, $d>>::dilated_max() as <Fixed<usize, $d> as Adapter>::Dilated, TestData::<Fixed<$emulated_t, $d>>::undilated_max() as <Fixed<usize, $d> as Adapter>::Dilated);
         )+}
     }
     #[cfg(target_pointer_width = "16")]
@@ -165,8 +193,8 @@ mod tests {
                         for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
                             for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<Fixed<$t, $d>>::undilated_max();
-                                let dilated = (*dilated_a ^ *dilated_b) as <Fixed<$t, $d> as Adapter>::Inner & TestData::<Fixed<$t, $d>>::dilated_max();
-                                assert_eq!(Fixed::<$t, $d>::dilate(undilated), dilated);
+                                let dilated = (*dilated_a ^ *dilated_b) as <Fixed<$t, $d> as Adapter>::Dilated & TestData::<Fixed<$t, $d>>::dilated_max();
+                                assert_eq!(Fixed::<$t, $d>::dilate(undilated), DilatedInt::<Fixed<$t, $d>>(dilated));
                                 assert_eq!(undilated.dilate_fixed::<$d>(), DilatedInt::<Fixed<$t, $d>>(dilated));
                             }
                         }
@@ -178,8 +206,8 @@ mod tests {
                         for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
                             for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<Fixed<$t, $d>>::undilated_max();
-                                let dilated = (*dilated_a ^ *dilated_b) as <Fixed<$t, $d> as Adapter>::Inner & TestData::<Fixed<$t, $d>>::dilated_max();
-                                assert_eq!(Fixed::<$t, $d>::undilate(dilated), undilated);
+                                let dilated = (*dilated_a ^ *dilated_b) as <Fixed<$t, $d> as Adapter>::Dilated & TestData::<Fixed<$t, $d>>::dilated_max();
+                                assert_eq!(Fixed::<$t, $d>::undilate(DilatedInt::<Fixed<$t, $d>>(dilated)), undilated);
                                 assert_eq!(DilatedInt::<Fixed<$t, $d>>(dilated).undilate(), undilated);
                             }
                         }
@@ -204,8 +232,8 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type InnerT = <Fixed<$t, $d> as Adapter>::Inner;
-                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(*a as InnerT) + DilatedInt::<Fixed<$t, $d>>(*b as InnerT), DilatedInt::<Fixed<$t, $d>>(*ans as InnerT));
+                            type DilatedT = <Fixed<$t, $d> as Adapter>::Dilated;
+                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(*a as DilatedT) + DilatedInt::<Fixed<$t, $d>>(*b as DilatedT), DilatedInt::<Fixed<$t, $d>>(*ans as DilatedT));
                         }
                     }
 
@@ -228,10 +256,10 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type InnerT = <Fixed<$t, $d> as Adapter>::Inner;
-                            let mut assigned = DilatedInt::<Fixed<$t, $d>>(*a as InnerT);
-                            assigned += DilatedInt::<Fixed<$t, $d>>(*b as InnerT);
-                            assert_eq!(assigned, DilatedInt::<Fixed<$t, $d>>(*ans as InnerT));
+                            type DilatedT = <Fixed<$t, $d> as Adapter>::Dilated;
+                            let mut assigned = DilatedInt::<Fixed<$t, $d>>(*a as DilatedT);
+                            assigned += DilatedInt::<Fixed<$t, $d>>(*b as DilatedT);
+                            assert_eq!(assigned, DilatedInt::<Fixed<$t, $d>>(*ans as DilatedT));
                         }
                     }
 
@@ -254,8 +282,8 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type InnerT = <Fixed<$t, $d> as Adapter>::Inner;
-                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(*a as InnerT) - DilatedInt::<Fixed<$t, $d>>(*b as InnerT), DilatedInt::<Fixed<$t, $d>>(*ans as InnerT));
+                            type DilatedT = <Fixed<$t, $d> as Adapter>::Dilated;
+                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(*a as DilatedT) - DilatedInt::<Fixed<$t, $d>>(*b as DilatedT), DilatedInt::<Fixed<$t, $d>>(*ans as DilatedT));
                         }
                     }
 
@@ -278,10 +306,10 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type InnerT = <Fixed<$t, $d> as Adapter>::Inner;
-                            let mut assigned = DilatedInt::<Fixed<$t, $d>>(*a as InnerT);
-                            assigned -= DilatedInt::<Fixed<$t, $d>>(*b as InnerT);
-                            assert_eq!(assigned, DilatedInt::<Fixed<$t, $d>>(*ans as InnerT));
+                            type DilatedT = <Fixed<$t, $d> as Adapter>::Dilated;
+                            let mut assigned = DilatedInt::<Fixed<$t, $d>>(*a as DilatedT);
+                            assigned -= DilatedInt::<Fixed<$t, $d>>(*b as DilatedT);
+                            assert_eq!(assigned, DilatedInt::<Fixed<$t, $d>>(*ans as DilatedT));
                         }
                     }
                 }

@@ -42,6 +42,7 @@ use std::{num::Wrapping, mem::size_of};
 // Int log is not yet stable, so we need our own version
 // See: https://github.com/rust-lang/rust/issues/70887
 // NOTE - Does not check for parameter validity because the use cases are limited and it's not exposed to the user
+#[inline]
 const fn ilog(base: usize, n: usize) -> usize {
     let mut r = 0;
     let mut b = base;
