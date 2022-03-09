@@ -2,32 +2,41 @@
 [![Anti-Capitalist Software License (v 1.4)](https://img.shields.io/badge/license-Anti--Capitalist%20(v%201.4)-brightgreen)](LICENSE.md)
 [![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=shield)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
 
-# NOTE
-This library is in pre-alpha. It is feature complete at a basic level, its interface may be subject to change.
+# WARNING
+This library is in an alpha stage of development. It is feature complete at a basic level, its interface may be subject to change.
 
 # dilate
 A compact, high performance integer dilation library for Rust.
 
-This library provides efficient casting to and from dilated representation
-as well as various efficient mathematical operations between dilated integers.
-
 Integer dilation is the process of converting cartesian indices (eg.
-coordinates) into a format suitable for use in D-dimensional [Morton
-Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences. The
-dilation process takes an integer's bit sequence and inserts a number of 0
-bits (`D - 1`) between each original bit successively. Thus, the original bit
-sequence becomes evenly padded. For example:
+coordinates) into a format suitable for use in D-dimensional algorithms
+such [Morton Order](https://en.wikipedia.org/wiki/Z-order_curve) curves.
+The dilation process takes an integer's bit sequence and inserts a number
+of 0 bits (`D - 1`) between each original bit successively. Thus, the
+original bit sequence becomes evenly padded. For example:
 * `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
 * `0b1011` D3-dilated becomes `0b1000001001`
 
 The process of undilation, or 'contraction', does the opposite:
-* `0b1010001` D2-contracted becomes `0b1101`
-* `0b1000001001` D3-contracted becomes `0b1011`
+* `0b1010001` D2-undilated becomes `0b1101`
+* `0b1000001001` D3-undilated becomes `0b1011`
+
+This libary also supports a limited subset of arthimetic operations on
+dilated integers via the standard rust Add, Sub and AddAssign, SubAssign
+operater traits. Whilst slightly more involved than regular integer
+arithmetic, these operations are still highly performant.
+
+# Supported Dilations
+For more information on the supported dilations and possible type
+combinations, please see
+[Supported Dilations via Expand](https://docs.rs/dilate/latest/dilate/expand/struct.Expand.html#supported-dilations-via-expand)
+and
+[Supported Dilations via Fixed](https://docs.rs/dilate/latest/dilate/fixed/struct.Fixed.html#supported-dilations-via-fixed).
 
 # Goals
 * High performance - Ready to use in performance sensitive contexts
 * Multiple types - Supports `u8`, `u16`, `u32`, `u64`, `u128`, `usize` (signed versions not yet planned)
-* N-dimensional - Suitable for multi-dimensional applications (up to 16 dimensions when `T = u8`)
+* N-dimensional - Suitable for multi-dimensional applications (up to 16 dimensions under certain conditions)
 * Trait based implementation - Conforms to standard Rust implementation patterns
 * No dependencies - Depends on Rust standard library only
 
@@ -37,7 +46,7 @@ First, link dilate into your project's cargo.toml.
 Check for the latest version at [crates.io](https://crates.io/crates/dilate):
 ```
 [dependencies]
-dilate = "0.4.0"
+dilate = "0.5.0"
 ```
 
 Next, import dilate into your project and try out some of the features:
@@ -45,11 +54,28 @@ Next, import dilate into your project and try out some of the features:
 ```
 use dilate::*;
 
-let dilated = DilatedInt::<u32, 2>::from(0b1101);
+let original: u8 = 0b1101;
+
+let dilated = original.dilate_expand::<2>();
+assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
 assert_eq!(dilated.0, 0b1010001);
- 
-assert_eq!(u32::from(dilated), 0b1101);
+
+assert_eq!(dilated.undilate(), original);
 ```
+*Example 2-dilation and undilation usage*
+
+```
+use dilate::*;
+
+let original: u8 = 0b1011;
+
+let dilated = original.dilate_expand::<3>();
+assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
+assert_eq!(dilated.0, 0b1000001001);
+
+assert_eq!(dilated.undilate(), original);
+```
+*Example 3-dilation and undilation usage*
 
 For more detailed info, please see the [code reference](https://docs.rs/dilate/latest/dilate/).
 
@@ -76,3 +102,5 @@ Permission has been explicitly granted to reproduce the agorithms within each pa
 # License
 
 dilate is licensed under the [Anti-Capitalist Software License (v 1.4)](https://github.com/alexmadeathing/dilate/blob/main/LICENSE.md). This means it is free and open source for use by individuals and organizations that do not operate by capitalist principles.
+
+Unless explicitly stated, your contributions will be incorporated under this license.
