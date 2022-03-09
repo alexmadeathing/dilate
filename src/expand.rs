@@ -56,7 +56,7 @@ use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 /// It is not necessary to use Expand directly. Instead, there's a handy helper
 /// trait implemented by all supported integers called DilateExpand. This trait
 /// provides a more convenient method of interating with expanded dilations -
-/// simply call the [dilate_expand::<D>()](DilateExpand::dilate_expand()) method
+/// simply call the [dilate_expand()](DilateExpand::dilate_expand()) method
 /// on your integer to dilate it.
 ///
 /// # Examples
@@ -116,20 +116,29 @@ use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 /// usize is interpreted as a u32 and will have the same expansion types as u32.
 ///
 /// # Which Dilation Method to Choose
-/// There are currently two types of DilationMethod. To help decide which is right for
-/// your application, consider the following:
-///
-/// Use [Expand] when you want all bits of the source integer to be dilated and
-/// you don't mind how the dilated integer is stored behind the scenes. This is
-/// the most intuitive method of interacting with dilated integers.
-///
-/// Use [Fixed](crate::fixed::Fixed) when you want control over the storage type and want to
-/// maximise the number of bits occupied within that storage type.
-/// [Fixed](crate::fixed::Fixed) is potentially more memory efficient than [Expand].
-///
-/// Notice that the difference between the two is that of focus; [Expand]
-/// focusses on maximising the usage of the source integer, whereas [Fixed](crate::fixed::Fixed)
-/// focusses on maximising the usage of the dilated integer.
+/// There are currently two distinct ways to dilate integers; via the
+/// [DilateExpand](crate::expand::DilateExpand) and
+/// [DilateFixed](crate::fixed::DilateFixed) trait implementations. To help
+/// decide which is right for your application, consider the following:
+/// 
+/// Use [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) when
+/// you want all bits of the source integer to be dilated and you don't mind
+/// how the dilated integer is stored behind the scenes. This is the most
+/// intuitive method of interacting with dilated integers.
+/// 
+/// Use [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) when you
+/// want control over the storage type and want to maximise the number of bits
+/// occupied within that storage type.
+/// 
+/// Notice that the difference between the two is that of focus;
+/// [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) focusses on
+/// maximising the usage of the source integer, whereas
+/// [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) focusses on
+/// maximising the usage of the dilated integer.
+/// 
+/// You may also use the raw [Expand](crate::expand::Expand) and
+/// [Fixed](crate::fixed::Fixed) [DilationMethod](crate::DilationMethod)
+/// implementations directly, though they tend to be more verbose.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Expand<T, const D: usize>(PhantomData<T>) where T: SupportedType;
 

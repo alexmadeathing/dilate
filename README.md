@@ -21,10 +21,9 @@ The process of undilation, or 'contraction', does the opposite:
 * `0b1010001` D2-undilated becomes `0b1101`
 * `0b1000001001` D3-undilated becomes `0b1011`
 
-This libary also supports a limited subset of arthimetic operations on
-dilated integers via the standard rust Add, Sub and AddAssign, SubAssign
-operater traits. Whilst slightly more involved than regular integer
-arithmetic, these operations are still highly performant.
+This libary also supports a limited subset of arthimetic operations on dilated
+integers via the standard rust operater traits. Whilst slightly more involved
+than regular integer arithmetic, these operations are still highly performant.
 
 # Supported Dilations
 For more information on the supported dilations and possible type
@@ -56,10 +55,14 @@ use dilate::*;
 
 let original: u8 = 0b1101;
 
+// Dilating
 let dilated = original.dilate_expand::<2>();
-assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
 assert_eq!(dilated.0, 0b1010001);
 
+// This is the actual dilated type
+assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
+
+// Undilating
 assert_eq!(dilated.undilate(), original);
 ```
 *Example 2-dilation and undilation usage*
@@ -69,10 +72,14 @@ use dilate::*;
 
 let original: u8 = 0b1011;
 
+// Dilating
 let dilated = original.dilate_expand::<3>();
-assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
 assert_eq!(dilated.0, 0b1000001001);
 
+// This is the actual dilated type
+assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
+
+// Undilating
 assert_eq!(dilated.undilate(), original);
 ```
 *Example 3-dilation and undilation usage*
