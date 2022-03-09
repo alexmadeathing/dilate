@@ -33,15 +33,19 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+// # References and Acknowledgments
+// Many thanks to the authors of the following white papers:
+// * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
+// * [2] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
+// * [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
+// 
+// Permission has been explicitly granted to reproduce the agorithms within each paper.
+
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_doc_code_examples)]
 #![deny(rustdoc::invalid_rust_codeblocks)]
 
 //! A compact, high performance integer dilation library for Rust.
-//! 
-//! This library provides efficient casting to and from dilated representation
-//! in various forms as well as several efficient mathematical operations
-//! between dilated integers.
 //! 
 //! Integer dilation is the process of converting cartesian indices (eg.
 //! coordinates) into a format suitable for use in D-dimensional algorithms
@@ -56,6 +60,11 @@
 //! * `0b1010001` D2-undilated becomes `0b1101`
 //! * `0b1000001001` D3-undilated becomes `0b1011`
 //! 
+//! This libary also supports a limited subset of arthimetic operations on
+//! dilated integers via the standard rust Add, Sub and AddAssign, SubAssign
+//! operater traits. Whilst slightly more involved than regular integer
+//! arithmetic, these operations are still highly performant.
+//! 
 //! # Examples
 //! ```
 //! use dilate::*;
@@ -63,6 +72,7 @@
 //! let original: u8 = 0b1101;
 //! 
 //! let dilated = original.dilate_expand::<2>();
+//! assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
 //! assert_eq!(dilated.0, 0b1010001);
 //! 
 //! assert_eq!(dilated.undilate(), original);
@@ -75,6 +85,7 @@
 //! let original: u8 = 0b1011;
 //! 
 //! let dilated = original.dilate_expand::<3>();
+//! assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
 //! assert_eq!(dilated.0, 0b1000001001);
 //! 
 //! assert_eq!(dilated.undilate(), original);
@@ -83,11 +94,11 @@
 
 mod internal;
 
-/// Contains the Expand adapter and all supporting items
+/// Contains the Expand dilation method and all supporting items
 pub mod expand;
 pub use crate::expand::{Expand, DilateExpand};
 
-/// Contains the Fixed adapter and all supporting items
+/// Contains the Fixed dilation method and all supporting items
 pub mod fixed;
 pub use crate::fixed::{Fixed, DilateFixed};
 
@@ -102,19 +113,19 @@ impl SupportedType for u64 { }
 impl SupportedType for u128 { }
 impl SupportedType for usize { }
 
-/// Dilation adapters allow for custom decoupled dilation behaviours
+/// Allows for custom decoupled dilation behaviours
 /// 
-/// An adapter describes the method of dilation, including the dilated and
-/// undilated types involved, wrapper methods to forward to the appropriate
-/// dilation functions, and some useful constants.
+/// An implementation of DilationMethod describes the manner in which dilation
+/// occurs, including the dilated and undilated types involved, wrapper methods
+/// to forward to the appropriate dilation functions, and some useful constants.
 /// 
 /// It is possible to construct your own dilation methods by implementing the
-/// [Adapter] trait and optionally constructing your own value relative dilation
-/// trait similar to [expand::DilateExpand].
+/// [DilationMethod] trait and optionally constructing your own value relative
+/// dilation trait similar to [DilateExpand](expand::DilateExpand).
 /// 
-/// # Which Adapter to Choose
-/// There are currently two types of Adapter. To help decide which is right for
-/// your application, consider the following:
+/// # Which Dilation Method to Choose
+/// There are currently two implementations of DilationMethod. To help decide
+/// which is right for your application, consider the following:
 /// 
 /// Use [Expand] when you want all bits of the source integer to be dilated and
 /// you don't mind how the dilated integer is stored behind the scenes. This is
@@ -127,18 +138,18 @@ impl SupportedType for usize { }
 /// Notice that the difference between the two is that of focus; [Expand]
 /// focusses on maximising the usage of the source integer, whereas [Fixed]
 /// focusses on maximising the usage of the dilated integer.
-pub trait Adapter: Sized {
+pub trait DilationMethod: Sized {
     /// The external undilated integer type
     type Undilated: SupportedType;
 
     /// The internal dilated integer type
     type Dilated: SupportedType;
 
-    /// The number of bits in the [Adapter::Undilated] type which
-    /// may be dilated into [Adapter::Dilated]
+    /// The number of bits in the [DilationMethod::Undilated] type which
+    /// may be dilated into [DilationMethod::Dilated]
     /// 
     /// It may be smaller than the number of bits in
-    /// [Adapter::Undilated] depending on the adapter type.
+    /// [DilationMethod::Undilated] depending on the dilation method used.
     /// 
     /// # Examples
     /// ```
@@ -149,13 +160,13 @@ pub trait Adapter: Sized {
     /// ```
     const UNDILATED_BITS: usize;
 
-    /// The maximum undilated value which may be dilated by this adapter
+    /// The maximum undilated value which may be dilated by this dilation method
     /// 
     /// This value holds a set of N consecutive 1 bits, where N is equal to
-    /// [Adapter::UNDILATED_BITS].
+    /// [DilationMethod::UNDILATED_BITS].
     /// 
     /// It may be smaller than the maximum value of
-    /// [Adapter::Undilated] depending on the adapter type.
+    /// [DilationMethod::Undilated] depending on the dilation method used.
     /// 
     /// # Examples
     /// ```
@@ -166,13 +177,13 @@ pub trait Adapter: Sized {
     /// ```
     const UNDILATED_MAX: Self::Undilated;
 
-    /// The number of maximally dilated bits occupied in [Adapter::Dilated]
+    /// The number of maximally dilated bits occupied in [DilationMethod::Dilated]
     /// 
-    /// This constant describes how many bits of [Adapter::Dilated] are
+    /// This constant describes how many bits of [DilationMethod::Dilated] are
     /// utilised, including the padding 0 bits.
     /// 
     /// It may be smaller than the maximum number of bits available in
-    /// [Adapter::Dilated] depending on the adapter type.
+    /// [DilationMethod::Dilated] depending on the dilation method used.
     /// 
     /// # Examples
     /// ```
@@ -183,11 +194,11 @@ pub trait Adapter: Sized {
     /// ```
     const DILATED_BITS: usize;
 
-    /// The maximum dilated value that can be stored in [Adapter::Dilated]
+    /// The maximum dilated value that can be stored in [DilationMethod::Dilated]
     /// 
     /// This constant holds a set of N dilated 1 bits, each separated by a
-    /// number of padding 0 bits, where N is equal to [Adapter::UNDILATED_BITS]
-    /// and the number of padding 0 bits depends on the adapter type.
+    /// number of padding 0 bits, where N is equal to [DilationMethod::UNDILATED_BITS]
+    /// and the number of padding 0 bits depends on the dilation method used.
     /// 
     /// # Examples
     /// ```
@@ -199,7 +210,7 @@ pub trait Adapter: Sized {
     const DILATED_MAX: Self::Dilated;
 
     /// This function carries out the dilation process, converting the
-    /// [Adapter::Undilated] value to a [DilatedInt].
+    /// [DilationMethod::Undilated] value to a [DilatedInt].
     /// 
     /// This function is exposed as a secondary interface and you may prefer
     /// the more human friendly trait methods: [DilateExpand::dilate_expand()]
@@ -209,7 +220,10 @@ pub trait Adapter: Sized {
     /// ```
     /// use dilate::*;
     /// 
+    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>(0b01010001));
     /// assert_eq!(Expand::<u8, 2>::dilate(0b1101).0, 0b01010001);
+    /// 
+    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101), DilatedInt::<Fixed<u16, 3>>(0b001001000001));
     /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101).0, 0b001001000001);
     /// ```
     /// 
@@ -217,7 +231,7 @@ pub trait Adapter: Sized {
     fn dilate(value: Self::Undilated) -> DilatedInt::<Self>;
 
     /// This function carries out the undilation process, converting a
-    /// [DilatedInt] back to an [Adapter::Undilated] value.
+    /// [DilatedInt] back to an [DilationMethod::Undilated] value.
     /// 
     /// This function is exposed as a secondary interface and you may prefer
     /// the more human friendly trait method: [Undilate::undilate()].
@@ -242,6 +256,8 @@ pub trait Adapter: Sized {
 /// DilatedInt holds a dilated integer and allows for specialised dilated
 /// arithmetic methods.
 /// 
+/// The stored dilated value may be obtained using the tuple field `.0`.
+/// 
 /// To dilate a regular integer and yield a DilatedInt, it is recommended to
 /// use the [DilateFixed::dilate_fixed()] or [DilateFixed::dilate_fixed()]
 /// trait methods. These traits are implemented for all [SupportedType]
@@ -260,6 +276,7 @@ pub trait Adapter: Sized {
 /// let original: u8 = 0b1101;
 /// 
 /// let dilated = original.dilate_expand::<2>();
+/// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
 /// assert_eq!(dilated.0, 0b1010001);
 /// 
 /// assert_eq!(dilated.undilate(), original);
@@ -272,6 +289,7 @@ pub trait Adapter: Sized {
 /// let original: u8 = 0b1011;
 /// 
 /// let dilated = original.dilate_expand::<3>();
+/// assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
 /// assert_eq!(dilated.0, 0b1000001001);
 /// 
 /// assert_eq!(dilated.undilate(), original);
@@ -296,9 +314,9 @@ pub trait Adapter: Sized {
 // ```
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DilatedInt<A>(pub A::Dilated) where A: Adapter;
+pub struct DilatedInt<A>(pub A::Dilated) where A: DilationMethod;
 
-impl<A> fmt::Display for DilatedInt<A> where A: Adapter, A::Dilated: fmt::Display {
+impl<A> fmt::Display for DilatedInt<A> where A: DilationMethod, A::Dilated: fmt::Display {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -312,7 +330,7 @@ impl<A> fmt::Display for DilatedInt<A> where A: Adapter, A::Dilated: fmt::Displa
 /// 
 /// The Undilation trait is implemented for any type of [DilatedInt].
 pub trait Undilate {
-    /// Output type of undilation process - should be same as [Adapter::Undilated]
+    /// Output type of undilation process - should be same as [DilationMethod::Undilated]
     type Undilated;
 
     /// This method carries out the undilation process, converting a
@@ -329,11 +347,11 @@ pub trait Undilate {
     /// assert_eq!(dilated.undilate(), 0b1101);
     /// ```
     /// 
-    /// See also [Adapter::undilate()]
+    /// See also [DilationMethod::undilate()]
     fn undilate(self) -> Self::Undilated;
 }
 
-impl<A> Undilate for DilatedInt<A> where A: Adapter {
+impl<A> Undilate for DilatedInt<A> where A: DilationMethod {
     type Undilated = A::Undilated;
 
     #[inline]
@@ -344,7 +362,7 @@ impl<A> Undilate for DilatedInt<A> where A: Adapter {
 
 impl<A> Add for DilatedInt<A>
 where
-    A: Adapter,
+    A: DilationMethod,
     A::Dilated: Copy + Default + Not<Output = A::Dilated> + BitAnd<Output = A::Dilated>,
     Wrapping<A::Dilated>: Add<Output = Wrapping<A::Dilated>>
 {
@@ -358,7 +376,7 @@ where
 
 impl<A> AddAssign for DilatedInt<A>
 where
-    A: Adapter,
+    A: DilationMethod,
     A::Dilated: Copy + Default + Not<Output = A::Dilated> + BitAnd<Output = A::Dilated>,
     Wrapping<A::Dilated>: Add<Output = Wrapping<A::Dilated>>
 {
@@ -370,7 +388,7 @@ where
 
 impl<A> Sub for DilatedInt<A>
 where
-    A: Adapter,
+    A: DilationMethod,
     A::Dilated: Copy + Default + BitAnd<Output = A::Dilated>,
     Wrapping<A::Dilated>: Sub<Output = Wrapping<A::Dilated>>
 {
@@ -384,7 +402,7 @@ where
 
 impl<A> SubAssign for DilatedInt<A>
 where
-    A: Adapter,
+    A: DilationMethod,
     A::Dilated: Copy + Default + BitAnd<Output = A::Dilated>,
     Wrapping<A::Dilated>: Sub<Output = Wrapping<A::Dilated>>
 {
@@ -400,22 +418,22 @@ pub(crate) mod shared_test_data {
 
     use lazy_static::lazy_static;
 
-    use super::Adapter;
+    use super::DilationMethod;
 
-    pub struct TestData<T> where T: Adapter {
+    pub struct TestData<T> where T: DilationMethod {
         marker: PhantomData<T>,
     }
     
     macro_rules! impl_test_data {
-        ($adapter_t:ty, $dil_max:expr, $con_max:expr) => {
-            impl TestData<$adapter_t> {
+        ($method_t:ty, $dil_max:expr, $con_max:expr) => {
+            impl TestData<$method_t> {
                 #[inline]
-                fn dilated_max() -> <$adapter_t as Adapter>::Dilated {
+                fn dilated_max() -> <$method_t as DilationMethod>::Dilated {
                     $dil_max
                 }
 
                 #[inline]
-                fn undilated_max() -> <$adapter_t as Adapter>::Undilated {
+                fn undilated_max() -> <$method_t as DilationMethod>::Undilated {
                     $con_max
                 }
             }
@@ -424,7 +442,7 @@ pub(crate) mod shared_test_data {
     pub(crate) use impl_test_data;
     
     // NOTE - The following test cases are shared between all types (up to D8)
-    //        For undilated values, we simply cast to the target type (and mask with undilated_max() for Fixed adapters)
+    //        For undilated values, we simply cast to the target type (and mask with undilated_max() for the Fixed method)
     //        For dilated values, we cast to the target inner type and mask with dilated_max()
     //        This procedure ensures that the test data is 100% valid in all cases
     //        Furthermore, every test case is xor'd with every other test case to

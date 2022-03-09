@@ -33,6 +33,14 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+// # References and Acknowledgments
+// Many thanks to the authors of the following white papers:
+// * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
+// * [2] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
+// * [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
+// 
+// Permission has been explicitly granted to reproduce the agorithms within each paper.
+
 use std::{num::Wrapping, mem::size_of};
 
 // For most const operations, we will use the largest available integer

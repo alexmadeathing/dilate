@@ -33,54 +33,79 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+// # References and Acknowledgments
+// Many thanks to the authors of the following white papers:
+// * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
+// * [2] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
+// * [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
+// 
+// Permission has been explicitly granted to reproduce the agorithms within each paper.
+
 use std::marker::PhantomData;
 
-use crate::{internal, SupportedType, Adapter, DilatedInt};
+use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 
-/// Dilating using the Expand adapter creates a dilated integer large enough to
-/// hold all dilated bits of the original integer. The exact type is defined by
-/// the adapter and depends on the combination of T and D.
+/// Dilates all bits of the source integer into a larger integer type
 /// 
+/// Dilating using the Expand method creates a dilated integer large enough to
+/// hold all bits of the original integer. The exact type of the resultant
+/// integer is defined by the individual Expand implementations and depends on
+/// the number of bits in the source integer and how large the dilation is,
+/// denoted by D.
+/// 
+/// It is not necessary to use Expand directly. Instead, there's a handy helper
+/// trait implemented by all supported integers called DilateExpand. This trait
+/// provides a more convenient method of interating with expanded dilations -
+/// simply call the [dilate_expand::<D>()](DilateExpand::dilate_expand()) method
+/// on your integer to dilate it.
+/// 
+/// # Examples
 /// ```
 /// use dilate::*;
 /// 
-/// assert_eq!(0b1101u8.dilate_expand::<2>().0, 0b01010001);
+/// let value: u8 = 0b1101;
 /// 
-/// assert_eq!(Expand::<u8, 2>::dilate(0b1101).0, 0b01010001);
+/// assert_eq!(value.dilate_expand::<2>(), DilatedInt::<Expand<u8, 2>>(0b01010001));
+/// assert_eq!(value.dilate_expand::<2>().0, 0b01010001);
+/// 
+/// assert_eq!(Expand::<u8, 2>::dilate(value), DilatedInt::<Expand<u8, 2>>(0b01010001));
+/// assert_eq!(Expand::<u8, 2>::dilate(value).0, 0b01010001);
 /// ```
-/// *Two methods for dilating u8 into u16 using the Expand adapter*
-/// Expand<T, D> is an adapter which describes the current dilation implementation - the dilated type adapts to the combination of T and D, choosing the smallest type that would contain all bits of the undilated type D-dilated. There are naturally a limited number of T and D combinations available as the the largest integer type supported is u128
+/// *Two methods for dilating u8 into u16 using the Expand method*
 /// 
-/// The size required to store the dilated version of an integer is determined
-/// by the size in bits `S` of the integer multiplied by the dilation amount `D`.
-/// Thus in all `D > 1` cases, the dilated version of a value will be stored using
-/// a larger integer than T. Because the largest supported integer is u128, there
-/// is a fixed upper limit of `S * D <= 128`. For example: `DilatedInt::<u32, 4>`
-/// is valid because `32 * 4 = 128`. `DilatedInt::<u16, 10>` is not valid because
-/// `16 * 10 > 128`. There are currently no plans to support larger types,
-/// although the implementation is theoretically possible.
+/// # The Storage Type
+/// The size required to store the dilated version of an integer is determined by
+/// the size in bits `S` of the integer multiplied by the dilation amount `D`.
+/// Thus in all `D > 1` cases, the dilated version of a value will be stored
+/// using a larger integer than T. The exact integer type chosen is determined by
+/// finding the smallest integer that contains `S * D` bits. Because the largest
+/// supported integer is u128, there is a fixed upper limit of `S * D <= 128`.
+/// For example: `Expand::<u8, 16>` is valid because `8 * 16 = 128`.
+/// `Expand::<u16, 10>` is not valid because `16 * 10 > 128`. There are currently
+/// no plans to support larger types, although the implementation is
+/// theoretically possible.
 /// 
-/// # Which Adapter to Choose
-/// There are currently two types of Adapter. To help decide which is right for
+/// # Which Dilation Method to Choose
+/// There are currently two types of DilationMethod. To help decide which is right for
 /// your application, consider the following:
 /// 
 /// Use [Expand] when you want all bits of the source integer to be dilated and
 /// you don't mind how the dilated integer is stored behind the scenes. This is
 /// the most intuitive method of interacting with dilated integers.
 /// 
-/// Use [Fixed] when you want control over the storage type and want to
+/// Use [Fixed](crate::fixed::Fixed) when you want control over the storage type and want to
 /// maximise the number of bits occupied within that storage type.
-/// [Fixed] is potentially more memory efficient than [Expand].
+/// [Fixed](crate::fixed::Fixed) is potentially more memory efficient than [Expand].
 /// 
 /// Notice that the difference between the two is that of focus; [Expand]
-/// focusses on maximising the usage of the source integer, whereas [Fixed]
+/// focusses on maximising the usage of the source integer, whereas [Fixed](crate::fixed::Fixed)
 /// focusses on maximising the usage of the dilated integer.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Expand<T, const D: usize>(PhantomData<T>) where T: SupportedType;
 
 macro_rules! impl_expand {
     ($undilated:ty, $(($d:literal, $dilated:ty)),+) => {$(
-        impl Adapter for Expand<$undilated, $d> {
+        impl DilationMethod for Expand<$undilated, $d> {
             type Undilated = $undilated;
             type Dilated = $dilated;
             const UNDILATED_BITS: usize = <$undilated>::BITS as usize;
@@ -116,9 +141,33 @@ impl_expand!(usize, (1, u32), (2, u64), (3, u128), (4, u128));
 #[cfg(target_pointer_width = "64")]
 impl_expand!(usize, (1, u64), (2, u128));
 
+/// A convenience trait for dilating integers using the [Expand] method
+/// 
+/// This trait is implemented by all supported integer types and provides a
+/// convenient and human readable way to dilate integers. Simply call the
+/// [DilateExpand::dilate_expand()] method to perform the dilation.
 pub trait DilateExpand: SupportedType {
+    /// This method carries out the expanding dilation process
+    /// 
+    /// It converts a raw [Undilated](DilationMethod::Undilated) value to a
+    /// [DilatedInt].
+    /// 
+    /// This method is provided as a more convenient way to interact with the
+    /// [Expand] dilation method.
+    /// 
+    /// # Examples
+    /// ```
+    /// use dilate::*;
+    /// 
+    /// let value: u8 = 0b1101;
+    /// 
+    /// assert_eq!(value.dilate_expand::<2>(), DilatedInt::<Expand<u8, 2>>(0b01010001));
+    /// assert_eq!(value.dilate_expand::<2>().0, 0b01010001);
+    /// ```
+    /// 
+    /// See also [Expand<T, D>::dilate()](crate::DilationMethod::dilate())
     #[inline]
-    fn dilate_expand<const D: usize>(self) -> DilatedInt<Expand<Self, D>> where Expand::<Self, D>: Adapter<Undilated = Self> {
+    fn dilate_expand<const D: usize>(self) -> DilatedInt<Expand<Self, D>> where Expand::<Self, D>: DilationMethod<Undilated = Self> {
         Expand::<Self, D>::dilate(self)
     }
 }
@@ -129,7 +178,7 @@ impl<T> DilateExpand for T where T: SupportedType { }
 mod tests {
     use paste::paste;
 
-    use crate::{Adapter, shared_test_data::{TestData, impl_test_data}};
+    use crate::{DilationMethod, shared_test_data::{TestData, impl_test_data}};
     use super::Expand;
    
     impl_test_data!(Expand<u8, 01>, 0xff, u8::MAX);
@@ -171,7 +220,7 @@ mod tests {
 
     macro_rules! impl_expand_test_data_usize {
         ($emulated_t:ty, $($d:literal),+) => {$(
-            impl_test_data!(Expand<usize, $d>, TestData::<Expand<$emulated_t, $d>>::dilated_max() as <Expand<usize, $d> as Adapter>::Dilated, TestData::<Expand<$emulated_t, $d>>::undilated_max() as <Expand<usize, $d> as Adapter>::Undilated);
+            impl_test_data!(Expand<usize, $d>, TestData::<Expand<$emulated_t, $d>>::dilated_max() as <Expand<usize, $d> as DilationMethod>::Dilated, TestData::<Expand<$emulated_t, $d>>::undilated_max() as <Expand<usize, $d> as DilationMethod>::Undilated);
         )+}
     }
     #[cfg(target_pointer_width = "16")]
@@ -186,7 +235,7 @@ mod tests {
             paste! {
                 mod [< expand_ $t _d $d >] {
                     use crate::shared_test_data::{TestData, VALUES, DILATION_TEST_CASES};
-                    use crate::{Adapter, DilatedInt, Undilate};
+                    use crate::{DilationMethod, DilatedInt, Undilate};
                     use super::super::{Expand, DilateExpand};
 
                     #[test]
@@ -205,7 +254,7 @@ mod tests {
                         for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
                             for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t;
-                                let dilated = (*dilated_a ^ *dilated_b) as <Expand<$t, $d> as Adapter>::Dilated & TestData::<Expand<$t, $d>>::dilated_max();
+                                let dilated = (*dilated_a ^ *dilated_b) as <Expand<$t, $d> as DilationMethod>::Dilated & TestData::<Expand<$t, $d>>::dilated_max();
                                 assert_eq!(Expand::<$t, $d>::dilate(undilated), DilatedInt::<Expand<$t, $d>>(dilated));
                                 assert_eq!(undilated.dilate_expand::<$d>(), DilatedInt::<Expand<$t, $d>>(dilated));
                             }
@@ -218,7 +267,7 @@ mod tests {
                         for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
                             for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t;
-                                let dilated = (*dilated_a ^ *dilated_b) as <Expand<$t, $d> as Adapter>::Dilated & TestData::<Expand<$t, $d>>::dilated_max();
+                                let dilated = (*dilated_a ^ *dilated_b) as <Expand<$t, $d> as DilationMethod>::Dilated & TestData::<Expand<$t, $d>>::dilated_max();
                                 assert_eq!(Expand::<$t, $d>::undilate(DilatedInt::<Expand<$t, $d>>(dilated)), undilated);
                                 assert_eq!(DilatedInt::<Expand<$t, $d>>(dilated).undilate(), undilated);
                             }
@@ -244,7 +293,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<Expand<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type DilatedT = <Expand<$t, $d> as Adapter>::Dilated;
+                            type DilatedT = <Expand<$t, $d> as DilationMethod>::Dilated;
                             assert_eq!(DilatedInt::<Expand<$t, $d>>(*a as DilatedT) + DilatedInt::<Expand<$t, $d>>(*b as DilatedT), DilatedInt::<Expand<$t, $d>>(*ans as DilatedT));
                         }
                     }
@@ -268,7 +317,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<Expand<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type DilatedT = <Expand<$t, $d> as Adapter>::Dilated;
+                            type DilatedT = <Expand<$t, $d> as DilationMethod>::Dilated;
                             let mut assigned = DilatedInt::<Expand<$t, $d>>(*a as DilatedT);
                             assigned += DilatedInt::<Expand<$t, $d>>(*b as DilatedT);
                             assert_eq!(assigned, DilatedInt::<Expand<$t, $d>>(*ans as DilatedT));
@@ -294,7 +343,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<Expand<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type DilatedT = <Expand<$t, $d> as Adapter>::Dilated;
+                            type DilatedT = <Expand<$t, $d> as DilationMethod>::Dilated;
                             assert_eq!(DilatedInt::<Expand<$t, $d>>(*a as DilatedT) - DilatedInt::<Expand<$t, $d>>(*b as DilatedT), DilatedInt::<Expand<$t, $d>>(*ans as DilatedT));
                         }
                     }
@@ -318,7 +367,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<Expand<$t, $d>>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type DilatedT = <Expand<$t, $d> as Adapter>::Dilated;
+                            type DilatedT = <Expand<$t, $d> as DilationMethod>::Dilated;
                             let mut assigned = DilatedInt::<Expand<$t, $d>>(*a as DilatedT);
                             assigned -= DilatedInt::<Expand<$t, $d>>(*b as DilatedT);
                             assert_eq!(assigned, DilatedInt::<Expand<$t, $d>>(*ans as DilatedT));
