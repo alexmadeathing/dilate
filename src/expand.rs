@@ -1,31 +1,31 @@
 // ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
-// 
+//
 // Copyright © 2022 Alex Blunt (alexmadeathing)
-// 
+//
 // This is anti-capitalist software, released for free use by individuals and
 // organizations that do not operate by capitalist principles.
-// 
+//
 // Permission is hereby granted, free of charge, to any person or organization
 // (the "User") obtaining a copy of this software and associated documentation
 // files (the "Software"), to use, copy, modify, merge, distribute, and/or sell
-// copies of the Software, subject to the following conditions: 
+// copies of the Software, subject to the following conditions:
 //
 // 1. The above copyright notice and this permission notice shall be included in
 // all copies or modified versions of the Software.
-// 
+//
 // 2. The User is one of the following:
 //   a. An individual person, laboring for themselves
 //   b. A non-profit organization
 //   c. An educational institution
 //   d. An organization that seeks shared profit for all of its members, and
 //      allows non-members to set the cost of their labor
-// 
+//
 // 3. If the User is an organization with owners, then all owners are workers
 // and all workers are owners with equal equity and/or equal vote.
-// 
+//
 // 4. If the User is an organization, then the User is not law enforcement or
 // military, or working for or under either.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY
 // KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 // FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
@@ -38,7 +38,7 @@
 // * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
 // * [2] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
 // * [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
-// 
+//
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
 use std::marker::PhantomData;
@@ -46,33 +46,33 @@ use std::marker::PhantomData;
 use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 
 /// Dilates all bits of the source integer into a larger integer type
-/// 
+///
 /// Dilating using the Expand method creates a dilated integer large enough to
 /// hold all bits of the original integer. The exact type of the resultant
 /// integer is defined by the individual Expand implementations and depends on
 /// the number of bits in the source integer and how large the dilation is,
 /// denoted by D.
-/// 
+///
 /// It is not necessary to use Expand directly. Instead, there's a handy helper
 /// trait implemented by all supported integers called DilateExpand. This trait
 /// provides a more convenient method of interating with expanded dilations -
 /// simply call the [dilate_expand::<D>()](DilateExpand::dilate_expand()) method
 /// on your integer to dilate it.
-/// 
+///
 /// # Examples
 /// ```
 /// use dilate::*;
-/// 
+///
 /// let value: u8 = 0b1101;
-/// 
+///
 /// assert_eq!(value.dilate_expand::<2>(), DilatedInt::<Expand<u8, 2>>(0b01010001));
 /// assert_eq!(value.dilate_expand::<2>().0, 0b01010001);
-/// 
+///
 /// assert_eq!(Expand::<u8, 2>::dilate(value), DilatedInt::<Expand<u8, 2>>(0b01010001));
 /// assert_eq!(Expand::<u8, 2>::dilate(value).0, 0b01010001);
 /// ```
 /// *Two methods for dilating u8 into u16 using the Expand method*
-/// 
+///
 /// # The Storage Type
 /// The size required to store the dilated version of an integer is determined by
 /// the size in bits `S` of the integer multiplied by the dilation amount `D`.
@@ -84,19 +84,49 @@ use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 /// `Expand::<u16, 10>` is not valid because `16 * 10 > 128`. There are currently
 /// no plans to support larger types, although the implementation is
 /// theoretically possible.
-/// 
+///
+/// # Supported Dilations via Expand
+/// The following is a list of supported combinations of types `T` and dilation
+/// amounts `D` and their underlying expanded type. The maximum dilatable value
+/// for Expand dilations is always T::MAX.
+///
+/// | T      | D   | Expands To | | T      | D   | Expands To |
+/// | ------ | --- | ---------- | | ------ | --- | ---------- |
+/// | `u8`   | 1   | `u8`       | | `u16`  | 1   | `u16`      |
+/// | `u8`   | 2   | `u16`      | | `u16`  | 2   | `u32`      |
+/// | `u8`   | 3   | `u32`      | | `u16`  | 3   | `u64`      |
+/// | `u8`   | 4   | `u32`      | | `u16`  | 4   | `u64`      |
+/// | `u8`   | 5   | `u64`      | | `u16`  | 5   | `u128`     |
+/// | `u8`   | 6   | `u64`      | | `u16`  | 6   | `u128`     |
+/// | `u8`   | 7   | `u64`      | | `u16`  | 7   | `u128`     |
+/// | `u8`   | 8   | `u64`      | | `u16`  | 8   | `u128`     |
+/// | `u8`   | 9   | `u128`     | | ...    | ... | ...        |
+/// | `u8`   | 10  | `u128`     | | `u32`  | 1   | `u32`      |
+/// | `u8`   | 11  | `u128`     | | `u32`  | 2   | `u64`      |
+/// | `u8`   | 12  | `u128`     | | `u32`  | 3   | `u128`     |
+/// | `u8`   | 13  | `u128`     | | `u32`  | 4   | `u128`     |
+/// | `u8`   | 14  | `u128`     | | ...    | ... | ...        |
+/// | `u8`   | 15  | `u128`     | | `u64`  | 1   | `u64`      |
+/// | `u8`   | 16  | `u128`     | | `u64`  | 2   | `u128`     |
+/// | ...    | ... | ...        | | ...    | ... | ...        |
+/// | ...    | ... | ...        | | `u128` | 1   | `u128`     |
+///
+/// Please note that usize is also supported and its behaviour is the same as the
+/// relevant integer type for your platform. For example, on a 32 bit system,
+/// usize is interpreted as a u32 and will have the same expansion types as u32.
+///
 /// # Which Dilation Method to Choose
 /// There are currently two types of DilationMethod. To help decide which is right for
 /// your application, consider the following:
-/// 
+///
 /// Use [Expand] when you want all bits of the source integer to be dilated and
 /// you don't mind how the dilated integer is stored behind the scenes. This is
 /// the most intuitive method of interacting with dilated integers.
-/// 
+///
 /// Use [Fixed](crate::fixed::Fixed) when you want control over the storage type and want to
 /// maximise the number of bits occupied within that storage type.
 /// [Fixed](crate::fixed::Fixed) is potentially more memory efficient than [Expand].
-/// 
+///
 /// Notice that the difference between the two is that of focus; [Expand]
 /// focusses on maximising the usage of the source integer, whereas [Fixed](crate::fixed::Fixed)
 /// focusses on maximising the usage of the dilated integer.
@@ -142,29 +172,29 @@ impl_expand!(usize, (1, u32), (2, u64), (3, u128), (4, u128));
 impl_expand!(usize, (1, u64), (2, u128));
 
 /// A convenience trait for dilating integers using the [Expand] method
-/// 
+///
 /// This trait is implemented by all supported integer types and provides a
 /// convenient and human readable way to dilate integers. Simply call the
 /// [DilateExpand::dilate_expand()] method to perform the dilation.
 pub trait DilateExpand: SupportedType {
     /// This method carries out the expanding dilation process
-    /// 
+    ///
     /// It converts a raw [Undilated](DilationMethod::Undilated) value to a
     /// [DilatedInt].
-    /// 
+    ///
     /// This method is provided as a more convenient way to interact with the
     /// [Expand] dilation method.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// let value: u8 = 0b1101;
-    /// 
+    ///
     /// assert_eq!(value.dilate_expand::<2>(), DilatedInt::<Expand<u8, 2>>(0b01010001));
     /// assert_eq!(value.dilate_expand::<2>().0, 0b01010001);
     /// ```
-    /// 
+    ///
     /// See also [Expand<T, D>::dilate()](crate::DilationMethod::dilate())
     #[inline]
     fn dilate_expand<const D: usize>(self) -> DilatedInt<Expand<Self, D>> where Expand::<Self, D>: DilationMethod<Undilated = Self> {
@@ -180,7 +210,7 @@ mod tests {
 
     use crate::{DilationMethod, shared_test_data::{TestData, impl_test_data}};
     use super::Expand;
-   
+
     impl_test_data!(Expand<u8, 01>, 0xff, u8::MAX);
     impl_test_data!(Expand<u8, 02>, 0x5555, u8::MAX);
     impl_test_data!(Expand<u8, 03>, 0x00249249, u8::MAX);

@@ -65,6 +65,13 @@
 //! operater traits. Whilst slightly more involved than regular integer
 //! arithmetic, these operations are still highly performant.
 //! 
+//! # Supported Dilations
+//! For more information on the supported dilations and possible type
+//! combinations, please see
+//! [Supported Dilations via Expand](crate::expand::Expand#supported-dilations-via-expand)
+//! and
+//! [Supported Dilations via Fixed](crate::fixed::Fixed#supported-dilations-via-fixed).
+//! 
 //! # Examples
 //! ```
 //! use dilate::*;
