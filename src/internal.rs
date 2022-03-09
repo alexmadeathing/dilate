@@ -43,133 +43,13 @@
 
 use std::{num::Wrapping, mem::size_of};
 
-// For most const operations, we will use the largest available integer
-// This assumption avoids the necessity to implement multiple versions of each of the following const functions
-// Instantiations of each const function can therefore safely blind cast to the appropriate type
-
-// Int log is not yet stable, so we need our own version
-// See: https://github.com/rust-lang/rust/issues/70887
-// NOTE - Does not check for parameter validity because the use cases are limited and it's not exposed to the user
-#[inline]
-const fn ilog(base: usize, n: usize) -> usize {
-    let mut r = 0;
-    let mut b = base;
-    while b <= n {
-        b = b * base;
-        r += 1;
-    }
-    r
-}
-
-// Calculates the maximum undilated value that fits into D-dilated T (fixed)
-#[inline]
-pub(crate) const fn build_fixed_undilated_max<T, const D: usize>() -> u128 {
-    let bits_available = size_of::<T>() * 8;
-    let s_minus_1 = bits_available / D - 1;
-
-    // By shifting in two phases like this, we can avoid overflow in case of D1
-    // NOTE - We can't just use Wrapping because this is a const fn
-    let partial_max = (1 << s_minus_1) - 1;
-    (partial_max << 1) | 0x1
-}
-
-// Builds a dilated mask with p repetitions of 1 bits separated by (q - 1) 0 bits
-// See Notation 4.2 in citation [1]
-#[inline]
-pub(crate) const fn build_dilated_mask(p_repetitions: usize, q_width: usize) -> u128 {
-    let mut r = p_repetitions;
-    let mut v = 0;
-    while r > 0 {
-        v = (v << q_width) | 1;
-        r -= 1;
-    }
-    v
-}
-
-// Calculates the maximum D-dilation round (total number of D-dilation rounds minus one)
-// See Algorithm 9 in citation [1]
-#[inline]
-pub(crate) const fn dilate_max_round<T, const D: usize>() -> usize {
-    let s = (size_of::<T>() * 8) / D;
-    ilog(D - 1, s)
-}
-
-// Calculates the D-dilation multiplier for each round
-// See section IV.D in citation [1]
-#[inline]
-pub(crate) const fn dilate_mult<T, const D: usize>(round: usize) -> u128 {
-    let round_inv = dilate_max_round::<T, D>() - round;
-    build_dilated_mask(D - 1, (D - 1).pow(round_inv as u32 + 1))
-}
-
-// Calculates the D-dilation mask for each round
-// See section IV.D in citation [1]
-#[inline]
-pub(crate) const fn dilate_mask<T, const D: usize>(round: usize) -> u128 {
-    let round_inv = dilate_max_round::<T, D>() - round;
-    let num_set_bits = (D - 1).pow(round_inv as u32);
-    let num_blank_bits = num_set_bits * (D - 1);
-    let sequence_length = num_set_bits + num_blank_bits;
-    let mut repetitions = (size_of::<T>() * 8) / sequence_length + 1;
-
-    let mut v = 0;
-    while repetitions > 0 {
-        v = (v << sequence_length) | ((1 << num_set_bits) - 1);
-        repetitions -= 1;
-    }
-    v
-}
-
-// Calculates the maximum D-undilation round (total number of D-undilation rounds minus one)
-// See Algorithm 10 in citation [1]
-#[inline]
-pub(crate) const fn undilate_max_round<T, const D: usize>() -> usize {
-    let s = (size_of::<T>() * 8) / D;
-    ilog(D, s)
-}
-
-// Calculates the D-undilation multiplier for each round
-// See section IV.D in citation [1]
-#[inline]
-pub(crate) const fn undilate_mult<T, const D: usize>(round: usize) -> u128 {
-    build_dilated_mask(D, D.pow(round as u32) * (D - 1))
-}
-
-// Calculates the D-undilation mask for each round
-// See section IV.D in citation [1]
-#[inline]
-pub(crate) const fn undilate_mask<T, const D: usize>(round: usize) -> u128 {
-    let s = (size_of::<T>() * 8) / D;
-    let num_blank_bits = D.pow(round as u32 + 1) * (D - 1);
-    let num_set_bits = D.pow(round as u32 + 1);
-
-    let sequence_length = num_blank_bits + num_set_bits;
-    let left_most_bit = D * (s - 1) + 1;
-
-    let num_set_bits = if num_set_bits < left_most_bit { num_set_bits } else { left_most_bit };
-
-    let initial_shift = left_most_bit - num_set_bits;
-
-    let mut v = ((1 << num_set_bits) - 1) << initial_shift;
-    let mut repetitions = left_most_bit / sequence_length;
-    while repetitions > 0 {
-        v = (v >> sequence_length) | (((1 << num_set_bits) - 1) << initial_shift);
-        repetitions -= 1;
-    }
-    v
-}
-
-#[inline]
-pub(crate) const fn undilate_shift<T, const D: usize>() -> usize {
-    let s = (size_of::<T>() * 8) / D;
-    (D * (s - 1) + 1) - s
-}
-
 macro_rules! impl_dilate_dn {
     () => {
         #[inline]
         fn dilate_explicit_dn<const D: usize>(self) -> Self {
             debug_assert!(D > 2, "Generic parameter 'D' must be greater than 2");
+            debug_assert!(self <= build_fixed_undilated_max::<Self, D>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
             let mut v = Wrapping(self);
             let mut i = 0;
             while i <= dilate_max_round::<Self, D>() {
@@ -206,6 +86,8 @@ pub trait DilateExplicit: Sized {
 impl DilateExplicit for u8 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [2]
         let mut v = self;
         v = (v | (v << 2)) & 0x33;
@@ -215,6 +97,8 @@ impl DilateExplicit for u8 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [1]
         let mut v = Wrapping(self);
         v = (v * Wrapping(0x11)) & Wrapping(0xC3);
@@ -228,6 +112,8 @@ impl DilateExplicit for u8 {
 impl DilateExplicit for u16 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [2]
         let mut v = self;
         v = (v | (v << 4)) & 0x0F0F;
@@ -238,6 +124,8 @@ impl DilateExplicit for u16 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [1]
         let mut v = Wrapping(self);
         v = (v * Wrapping(0x101)) & Wrapping(0xF00F);
@@ -252,6 +140,8 @@ impl DilateExplicit for u16 {
 impl DilateExplicit for u32 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [2]
         let mut v = self;
         v = (v | (v << 8)) & 0x00FF00FF;
@@ -263,6 +153,8 @@ impl DilateExplicit for u32 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [1]
         let mut v = Wrapping(self);
         v = (v * Wrapping(0x10001)) & Wrapping(0xFF0000FF);
@@ -278,6 +170,8 @@ impl DilateExplicit for u32 {
 impl DilateExplicit for u64 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [2]
         let mut v = self;
         v = (v | (v << 16)) & 0x0000FFFF0000FFFF;
@@ -290,6 +184,8 @@ impl DilateExplicit for u64 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [1]
         let mut v = Wrapping(self);
         v = (v * Wrapping(0x100000001)) & Wrapping(0xFFFF00000000FFFF);
@@ -306,6 +202,8 @@ impl DilateExplicit for u64 {
 impl DilateExplicit for u128 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [2]
         let mut v = self;
         v = (v | (v << 32)) & 0x00000000FFFFFFFF00000000FFFFFFFF;
@@ -319,6 +217,8 @@ impl DilateExplicit for u128 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         // See citation [1]
         let mut v = Wrapping(self);
         v = (v * Wrapping(0x10000000000000001)) & Wrapping(0xFFFFFFFF0000000000000000FFFFFFFF);
@@ -336,6 +236,8 @@ impl DilateExplicit for u128 {
 impl DilateExplicit for usize {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).dilate_explicit_d2();
         #[cfg(target_pointer_width = "32")]
@@ -347,6 +249,8 @@ impl DilateExplicit for usize {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
+        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).dilate_explicit_d3();
         #[cfg(target_pointer_width = "32")]
@@ -532,6 +436,128 @@ pub fn undilate<T, const D: usize>(value: T) -> T where T: UndilateExplicit {
         3 => value.undilate_explicit_d3(),
         _ => value.undilate_explicit_dn::<D>(),
     }
+}
+
+// For most const operations, we will use the largest available integer
+// This assumption avoids the necessity to implement multiple versions of each of the following const functions
+// Instantiations of each const function can therefore safely blind cast to the appropriate type
+
+// Int log is not yet stable, so we need our own version
+// See: https://github.com/rust-lang/rust/issues/70887
+// NOTE - Does not check for parameter validity because the use cases are limited and it's not exposed to the user
+#[inline]
+const fn ilog(base: usize, n: usize) -> usize {
+    let mut r = 0;
+    let mut b = base;
+    while b <= n {
+        b = b * base;
+        r += 1;
+    }
+    r
+}
+
+// Calculates the maximum undilated value that fits into D-dilated T (fixed)
+#[inline]
+pub(crate) const fn build_fixed_undilated_max<T, const D: usize>() -> u128 {
+    let bits_available = size_of::<T>() * 8;
+    let s_minus_1 = bits_available / D - 1;
+
+    // By shifting in two phases like this, we can avoid overflow in case of D1
+    // NOTE - We can't just use Wrapping because this is a const fn
+    let partial_max = (1 << s_minus_1) - 1;
+    (partial_max << 1) | 0x1
+}
+
+// Builds a dilated mask with p repetitions of 1 bits separated by (q - 1) 0 bits
+// See Notation 4.2 in citation [1]
+#[inline]
+pub(crate) const fn build_dilated_mask(p_repetitions: usize, q_width: usize) -> u128 {
+    let mut r = p_repetitions;
+    let mut v = 0;
+    while r > 0 {
+        v = (v << q_width) | 1;
+        r -= 1;
+    }
+    v
+}
+
+// Calculates the maximum D-dilation round (total number of D-dilation rounds minus one)
+// See Algorithm 9 in citation [1]
+#[inline]
+pub(crate) const fn dilate_max_round<T, const D: usize>() -> usize {
+    let s = (size_of::<T>() * 8) / D;
+    ilog(D - 1, s)
+}
+
+// Calculates the D-dilation multiplier for each round
+// See section IV.D in citation [1]
+#[inline]
+pub(crate) const fn dilate_mult<T, const D: usize>(round: usize) -> u128 {
+    let round_inv = dilate_max_round::<T, D>() - round;
+    build_dilated_mask(D - 1, (D - 1).pow(round_inv as u32 + 1))
+}
+
+// Calculates the D-dilation mask for each round
+// See section IV.D in citation [1]
+#[inline]
+pub(crate) const fn dilate_mask<T, const D: usize>(round: usize) -> u128 {
+    let round_inv = dilate_max_round::<T, D>() - round;
+    let num_set_bits = (D - 1).pow(round_inv as u32);
+    let num_blank_bits = num_set_bits * (D - 1);
+    let sequence_length = num_set_bits + num_blank_bits;
+    let mut repetitions = (size_of::<T>() * 8) / sequence_length + 1;
+
+    let mut v = 0;
+    while repetitions > 0 {
+        v = (v << sequence_length) | ((1 << num_set_bits) - 1);
+        repetitions -= 1;
+    }
+    v
+}
+
+// Calculates the maximum D-undilation round (total number of D-undilation rounds minus one)
+// See Algorithm 10 in citation [1]
+#[inline]
+pub(crate) const fn undilate_max_round<T, const D: usize>() -> usize {
+    let s = (size_of::<T>() * 8) / D;
+    ilog(D, s)
+}
+
+// Calculates the D-undilation multiplier for each round
+// See section IV.D in citation [1]
+#[inline]
+pub(crate) const fn undilate_mult<T, const D: usize>(round: usize) -> u128 {
+    build_dilated_mask(D, D.pow(round as u32) * (D - 1))
+}
+
+// Calculates the D-undilation mask for each round
+// See section IV.D in citation [1]
+#[inline]
+pub(crate) const fn undilate_mask<T, const D: usize>(round: usize) -> u128 {
+    let s = (size_of::<T>() * 8) / D;
+    let num_blank_bits = D.pow(round as u32 + 1) * (D - 1);
+    let num_set_bits = D.pow(round as u32 + 1);
+
+    let sequence_length = num_blank_bits + num_set_bits;
+    let left_most_bit = D * (s - 1) + 1;
+
+    let num_set_bits = if num_set_bits < left_most_bit { num_set_bits } else { left_most_bit };
+
+    let initial_shift = left_most_bit - num_set_bits;
+
+    let mut v = ((1 << num_set_bits) - 1) << initial_shift;
+    let mut repetitions = left_most_bit / sequence_length;
+    while repetitions > 0 {
+        v = (v >> sequence_length) | (((1 << num_set_bits) - 1) << initial_shift);
+        repetitions -= 1;
+    }
+    v
+}
+
+#[inline]
+pub(crate) const fn undilate_shift<T, const D: usize>() -> usize {
+    let s = (size_of::<T>() * 8) / D;
+    (D * (s - 1) + 1) - s
 }
 
 // TEST NOTE - Although not strictly necessary, we test the constant generation

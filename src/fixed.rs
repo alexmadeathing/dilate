@@ -56,6 +56,11 @@ use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 /// The number of dilatable bits is known ahead of time and can be retrieved
 /// using the [Fixed::UNDILATED_BITS](crate::DilationMethod::UNDILATED_BITS)
 /// constant.
+/// 
+/// Note that when using the fixed method, attempting to dilate a value that
+/// would not fit into the same type will yield a panic. You may use
+/// [Fixed::<T, D>::UNDILATED_MAX](crate::DilationMethod::UNDILATED_MAX) (or
+/// the table below) to determine whether your value will dilate successfully.
 ///
 /// It is not necessary to use Fixed directly. Instead, there's a handy helper
 /// trait implemented by all supported integers called DilateFixed. This trait
@@ -185,6 +190,11 @@ pub trait DilateFixed: SupportedType {
     ///
     /// This method is provided as a more convenient way to interact with the
     /// [Fixed] dilation method.
+    /// 
+    /// Note that when using the fixed method, attempting to dilate a value that
+    /// would not fit into the same type will yield a panic. You may use
+    /// [Fixed::<T, D>::UNDILATED_MAX](crate::DilationMethod::UNDILATED_MAX)
+    /// to determine whether your value will dilate successfully.
     ///
     /// # Examples
     /// ```
@@ -281,6 +291,32 @@ mod tests {
                     #[test]
                     fn dilated_max_is_correct() {
                         assert_eq!(Fixed::<$t, $d>::DILATED_MAX, TestData::<Fixed<$t, $d>>::dilated_max());
+                    }
+
+                    // Unique to Fixed dilations
+                    #[test]
+                    #[should_panic(expected = "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)")]
+                    fn dilate_too_large_a_should_panic() {
+                        if $d != 1 {
+                            Fixed::<$t, $d>::dilate(TestData::<Fixed<$t, $d>>::undilated_max() + 1);
+                        } else {
+                            // D1 will never panic because the maximum dilatable value is equal to T::MAX
+                            // So we'll hack a panic in here
+                            panic!("Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+                        }
+                    }
+
+                    // Unique to Fixed dilations
+                    #[test]
+                    #[should_panic(expected = "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)")]
+                    fn dilate_too_large_b_should_panic() {
+                        if $d != 1 {
+                            (TestData::<Fixed<$t, $d>>::undilated_max() + 1).dilate_fixed::<$d>();
+                        } else {
+                            // D1 will never panic because the maximum dilatable value is equal to T::MAX
+                            // So we'll hack a panic in here
+                            panic!("Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+                        }
                     }
 
                     #[test]
