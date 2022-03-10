@@ -5,6 +5,8 @@
 # WARNING
 This library is in an alpha stage of development. It is feature complete at a basic level, its interface may be subject to change.
 
+For migration notes, please see: https://github.com/alexmadeathing/dilate/releases
+
 # dilate
 A compact, high performance integer dilation library for Rust.
 
