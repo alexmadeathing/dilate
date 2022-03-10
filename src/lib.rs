@@ -65,18 +65,10 @@
 //! more involved than regular integer arithmetic, these operations are still
 //! highly performant.
 //! 
-//! # Supported Dilations
-//! For more information on the supported dilations and possible type
-//! combinations, please see
-//! [Supported Dilations via Expand](crate::expand::Expand#supported-dilations-via-expand)
-//! and
-//! [Supported Dilations via Fixed](crate::fixed::Fixed#supported-dilations-via-fixed).
-//! 
 //! # Which Dilation Method to Choose
-//! There are currently two distinct ways to dilate integers; via the
-//! [DilateExpand](crate::expand::DilateExpand) and
-//! [DilateFixed](crate::fixed::DilateFixed) trait implementations. To help
-//! decide which is right for your application, consider the following:
+//! There are currently two distinct ways to dilate integers; Expanding or
+//! Fixed. To help decide which is right for your application, consider the
+//! following:
 //! 
 //! Use [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) when
 //! you want all bits of the source integer to be dilated and you don't mind
@@ -96,6 +88,13 @@
 //! You may also use the raw [Expand](crate::expand::Expand) and
 //! [Fixed](crate::fixed::Fixed) [DilationMethod](crate::DilationMethod)
 //! implementations directly, though they tend to be more verbose.
+//! 
+//! # Supported Dilations
+//! For more information on the supported dilations and possible type
+//! combinations, please see
+//! [Supported Expand Dilations](crate::expand::DilateExpand#supported-expand-dilations)
+//! and
+//! [Supported Fixed Dilations](crate::fixed::DilateFixed#supported-fixed-dilations).
 //! 
 //! # Examples
 //! ```
@@ -162,31 +161,6 @@ impl SupportedType for usize { }
 /// It is possible to construct your own dilation methods by implementing the
 /// [DilationMethod] trait and optionally constructing your own value relative
 /// dilation trait similar to [DilateExpand](expand::DilateExpand).
-/// 
-/// # Which Dilation Method to Choose
-/// There are currently two distinct ways to dilate integers; via the
-/// [DilateExpand](crate::expand::DilateExpand) and
-/// [DilateFixed](crate::fixed::DilateFixed) trait implementations. To help
-/// decide which is right for your application, consider the following:
-/// 
-/// Use [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) when
-/// you want all bits of the source integer to be dilated and you don't mind
-/// how the dilated integer is stored behind the scenes. This is the most
-/// intuitive method of interacting with dilated integers.
-/// 
-/// Use [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) when you
-/// want control over the storage type and want to maximise the number of bits
-/// occupied within that storage type.
-/// 
-/// Notice that the difference between the two is that of focus;
-/// [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) focusses on
-/// maximising the usage of the source integer, whereas
-/// [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) focusses on
-/// maximising the usage of the dilated integer.
-/// 
-/// You may also use the raw [Expand](crate::expand::Expand) and
-/// [Fixed](crate::fixed::Fixed) [DilationMethod](crate::DilationMethod)
-/// implementations directly, though they tend to be more verbose.
 pub trait DilationMethod: Sized {
     /// The external undilated integer type
     type Undilated: SupportedType;
@@ -305,16 +279,16 @@ pub trait DilationMethod: Sized {
 /// DilatedInt holds a dilated integer and allows for specialised dilated
 /// arithmetic methods.
 /// 
-/// The stored dilated value may be obtained using the tuple field `.0`.
-/// 
-/// To dilate a regular integer and yield a DilatedInt, it is recommended to
-/// use the [DilateExpand::dilate_expand()] or [DilateFixed::dilate_fixed()]
+/// To dilate a regular integer and yield a DilatedInt, use the
+/// [DilateExpand::dilate_expand()] or [DilateFixed::dilate_fixed()]
 /// trait methods. These traits are implemented for all [SupportedType]
 /// integers.
 /// 
-/// To undilate from a DilatedInt and yield a regular integer, it is
-/// recommended to use the [Undilate::undilate()] trait method. This trait is
-/// implemented for all DilatedInt types.
+/// The stored dilated value may be obtained using the tuple field `.0`.
+/// 
+/// To undilate from a DilatedInt and yield a regular integer, use the
+/// [Undilate::undilate()] trait method. This trait is implemented for
+/// all DilatedInt types.
 /// 
 /// # Examples
 /// 
@@ -343,24 +317,6 @@ pub trait DilationMethod: Sized {
 /// 
 /// assert_eq!(dilated.undilate(), original);
 /// ```
-// 
-// NOTE - Not exposing this to docs yet as example is quite involved
-// Whilst the application of dilated integers are not limited to [Morton
-// Order](https://en.wikipedia.org/wiki/Z-order_curve) bit sequences, they
-// are an ideal candidate.
-// To dilate a set of cartesian indices and produce a Morton encoded integer,
-// you may use bit shift and or operators to combine multiple dilations:
-// ```
-// let x_dilated = 123u32.dilate_expand::<3>();
-// let y_dilated = 456u32.dilate_expand::<3>();
-// let z_dilated = 789u32.dilate_expand::<3>();
-// 
-// let morton_encoded = (x_dilated.0 << 0) | (y_dilated.0 << 1) | (z_dilated.0 << 2);
-// 
-// assert_eq!(DilatedInt::<Expand<u32, 3>>((morton_encoded >> 0) & Expand::<u32, 3>::DILATED_MAX).undilate(), 123);
-// assert_eq!(DilatedInt::<Expand<u32, 3>>((morton_encoded >> 1) & Expand::<u32, 3>::DILATED_MAX).undilate(), 456);
-// assert_eq!(DilatedInt::<Expand<u32, 3>>((morton_encoded >> 2) & Expand::<u32, 3>::DILATED_MAX).undilate(), 789);
-// ```
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DilatedInt<A>(pub A::Dilated) where A: DilationMethod;

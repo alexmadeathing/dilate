@@ -28,9 +28,9 @@ than regular integer arithmetic, these operations are still highly performant.
 # Supported Dilations
 For more information on the supported dilations and possible type
 combinations, please see
-[Supported Dilations via Expand](https://docs.rs/dilate/latest/dilate/expand/struct.Expand.html#supported-dilations-via-expand)
+[Supported Dilations via Expand](https://docs.rs/dilate/latest/dilate/expand/trait.DilateExpand.html#supported-expand-dilations)
 and
-[Supported Dilations via Fixed](https://docs.rs/dilate/latest/dilate/fixed/struct.Fixed.html#supported-dilations-via-fixed).
+[Supported Dilations via Fixed](https://docs.rs/dilate/latest/dilate/fixed/trait.DilateFixed.html#supported-fixed-dilations).
 
 # Goals
 * High performance - Ready to use in performance sensitive contexts

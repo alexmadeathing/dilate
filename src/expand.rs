@@ -45,100 +45,37 @@ use std::marker::PhantomData;
 
 use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 
-/// Dilates all bits of the source integer into a larger integer type
-///
-/// Dilating using the Expand method creates a dilated integer large enough to
-/// hold all bits of the original integer. The exact type of the resultant
-/// integer is defined by the individual Expand implementations and depends on
-/// the number of bits in the source integer and how large the dilation is,
-/// denoted by D.
-///
-/// It is not necessary to use Expand directly. Instead, there's a handy helper
-/// trait implemented by all supported integers called DilateExpand. This trait
-/// provides a more convenient method of interating with expanded dilations -
-/// simply call the [dilate_expand()](DilateExpand::dilate_expand()) method
-/// on your integer to dilate it.
+/// A DilationMethod implementation which provides expanding dilation meta information
+/// 
+/// This trait implementation describes the types involved with an expanding
+/// dilation as well as some useful constants and wrapper methods which
+/// actually perform the dilations.
+/// 
+/// Although this trait implementation provides the functions for performing
+/// dilations, users should generally prefer to dilate via the [DilateExpand]
+/// trait and its [dilate_expand()](DilateExpand::dilate_expand()) method,
+/// which is generally less verbose and therefore more user friendly.
 ///
 /// # Examples
 /// ```
 /// use dilate::*;
 ///
-/// let value: u8 = 0b1101;
+/// assert_eq!(Expand::<u8, 2>::UNDILATED_MAX, 255);
+/// assert_eq!(Expand::<u8, 2>::UNDILATED_BITS, 8);
+/// 
+/// assert_eq!(Expand::<u8, 2>::DILATED_MAX, 0b0101010101010101);
+/// assert_eq!(Expand::<u8, 2>::DILATED_BITS, 16);
+/// 
+/// let original: u8 = 0b1101;
+/// let dilated = Expand::<u8, 2>::dilate(original);
 ///
-/// assert_eq!(value.dilate_expand::<2>(), DilatedInt::<Expand<u8, 2>>(0b01010001));
-/// assert_eq!(value.dilate_expand::<2>().0, 0b01010001);
-///
-/// assert_eq!(Expand::<u8, 2>::dilate(value), DilatedInt::<Expand<u8, 2>>(0b01010001));
-/// assert_eq!(Expand::<u8, 2>::dilate(value).0, 0b01010001);
+/// assert_eq!(dilated.0, 0b01010001);
+/// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b01010001));
+/// 
+/// assert_eq!(Expand::<u8, 2>::undilate(dilated), original);
 /// ```
-/// *Two methods for dilating u8 into u16 using the Expand method*
-///
-/// # The Storage Type
-/// The size required to store the dilated version of an integer is determined by
-/// the size in bits `S` of the integer multiplied by the dilation amount `D`.
-/// Thus in all `D > 1` cases, the dilated version of a value will be stored
-/// using a larger integer than T. The exact integer type chosen is determined by
-/// finding the smallest integer that contains `S * D` bits. Because the largest
-/// supported integer is u128, there is a fixed upper limit of `S * D <= 128`.
-/// For example: `Expand::<u8, 16>` is valid because `8 * 16 = 128`.
-/// `Expand::<u16, 10>` is not valid because `16 * 10 > 128`. There are currently
-/// no plans to support larger types, although the implementation is
-/// theoretically possible.
-///
-/// # Supported Dilations via Expand
-/// The following is a list of supported combinations of types `T` and dilation
-/// amounts `D` and their underlying expanded type. The maximum dilatable value
-/// for Expand dilations is always T::MAX.
-///
-/// | T      | D   | Expands To | | T      | D   | Expands To |
-/// | ------ | --- | ---------- | | ------ | --- | ---------- |
-/// | `u8`   | 1   | `u8`       | | `u16`  | 1   | `u16`      |
-/// | `u8`   | 2   | `u16`      | | `u16`  | 2   | `u32`      |
-/// | `u8`   | 3   | `u32`      | | `u16`  | 3   | `u64`      |
-/// | `u8`   | 4   | `u32`      | | `u16`  | 4   | `u64`      |
-/// | `u8`   | 5   | `u64`      | | `u16`  | 5   | `u128`     |
-/// | `u8`   | 6   | `u64`      | | `u16`  | 6   | `u128`     |
-/// | `u8`   | 7   | `u64`      | | `u16`  | 7   | `u128`     |
-/// | `u8`   | 8   | `u64`      | | `u16`  | 8   | `u128`     |
-/// | `u8`   | 9   | `u128`     | | ...    | ... | ...        |
-/// | `u8`   | 10  | `u128`     | | `u32`  | 1   | `u32`      |
-/// | `u8`   | 11  | `u128`     | | `u32`  | 2   | `u64`      |
-/// | `u8`   | 12  | `u128`     | | `u32`  | 3   | `u128`     |
-/// | `u8`   | 13  | `u128`     | | `u32`  | 4   | `u128`     |
-/// | `u8`   | 14  | `u128`     | | ...    | ... | ...        |
-/// | `u8`   | 15  | `u128`     | | `u64`  | 1   | `u64`      |
-/// | `u8`   | 16  | `u128`     | | `u64`  | 2   | `u128`     |
-/// | ...    | ... | ...        | | ...    | ... | ...        |
-/// | ...    | ... | ...        | | `u128` | 1   | `u128`     |
-///
-/// Please note that usize is also supported and its behaviour is the same as the
-/// relevant integer type for your platform. For example, on a 32 bit system,
-/// usize is interpreted as a u32 and will have the same expansion types as u32.
-///
-/// # Which Dilation Method to Choose
-/// There are currently two distinct ways to dilate integers; via the
-/// [DilateExpand](crate::expand::DilateExpand) and
-/// [DilateFixed](crate::fixed::DilateFixed) trait implementations. To help
-/// decide which is right for your application, consider the following:
 /// 
-/// Use [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) when
-/// you want all bits of the source integer to be dilated and you don't mind
-/// how the dilated integer is stored behind the scenes. This is the most
-/// intuitive method of interacting with dilated integers.
-/// 
-/// Use [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) when you
-/// want control over the storage type and want to maximise the number of bits
-/// occupied within that storage type.
-/// 
-/// Notice that the difference between the two is that of focus;
-/// [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) focusses on
-/// maximising the usage of the source integer, whereas
-/// [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) focusses on
-/// maximising the usage of the dilated integer.
-/// 
-/// You may also use the raw [Expand](crate::expand::Expand) and
-/// [Fixed](crate::fixed::Fixed) [DilationMethod](crate::DilationMethod)
-/// implementations directly, though they tend to be more verbose.
+/// For more detailed information, see [dilate_expand()](crate::expand::DilateExpand::dilate_expand())
 #[derive(Debug, PartialEq, Eq)]
 pub struct Expand<T, const D: usize>(PhantomData<T>) where T: SupportedType;
 
@@ -180,19 +117,19 @@ impl_expand!(usize, (1, u32), (2, u64), (3, u128), (4, u128));
 #[cfg(target_pointer_width = "64")]
 impl_expand!(usize, (1, u64), (2, u128));
 
-/// A convenience trait for dilating integers using the [Expand] method
+/// A convenience trait for dilating integers using the [Expand] [DilationMethod]
 ///
 /// This trait is implemented by all supported integer types and provides a
 /// convenient and human readable way to dilate integers. Simply call the
 /// [DilateExpand::dilate_expand()] method to perform the dilation.
 pub trait DilateExpand: SupportedType {
-    /// This method carries out the expanding dilation process
+    /// Dilates all bits of the source integer into a larger integer type
     ///
-    /// It converts a raw [Undilated](DilationMethod::Undilated) value to a
-    /// [DilatedInt].
-    ///
-    /// This method is provided as a more convenient way to interact with the
-    /// [Expand] dilation method.
+    /// Dilating using the expand method creates a dilated integer large enough to
+    /// hold all bits of the original integer. The exact type of the resultant
+    /// integer is defined by the individual [Expand] implementations and depends
+    /// on the number of bits in the source integer and how large the dilation is,
+    /// denoted by D.
     ///
     /// # Examples
     /// ```
@@ -203,6 +140,48 @@ pub trait DilateExpand: SupportedType {
     /// assert_eq!(value.dilate_expand::<2>(), DilatedInt::<Expand<u8, 2>>(0b01010001));
     /// assert_eq!(value.dilate_expand::<2>().0, 0b01010001);
     /// ```
+    ///
+    /// # The Storage Type
+    /// The size required to store the dilated version of an integer is determined by
+    /// the size in bits `S` of the integer multiplied by the dilation amount `D`.
+    /// Thus in all `D > 1` cases, the dilated version of a value will be stored
+    /// using a larger integer than T. The exact integer type chosen is determined by
+    /// finding the smallest integer that contains `S * D` bits. Because the largest
+    /// supported integer is u128, there is a fixed upper limit of `S * D <= 128`.
+    /// For example: `Expand::<u8, 16>` is valid because `8 * 16 = 128`.
+    /// `Expand::<u16, 10>` is not valid because `16 * 10 > 128`. There are currently
+    /// no plans to support larger types, although the implementation is
+    /// theoretically possible.
+    ///
+    /// # Supported Expand Dilations
+    /// The following is a list of supported combinations of types `T` and dilation
+    /// amounts `D` and their underlying expanded type. The maximum dilatable value
+    /// for Expand dilations is always T::MAX.
+    ///
+    /// | T      | D   | Expands To | | T      | D   | Expands To |
+    /// | ------ | --- | ---------- | | ------ | --- | ---------- |
+    /// | `u8`   | 1   | `u8`       | | `u16`  | 1   | `u16`      |
+    /// | `u8`   | 2   | `u16`      | | `u16`  | 2   | `u32`      |
+    /// | `u8`   | 3   | `u32`      | | `u16`  | 3   | `u64`      |
+    /// | `u8`   | 4   | `u32`      | | `u16`  | 4   | `u64`      |
+    /// | `u8`   | 5   | `u64`      | | `u16`  | 5   | `u128`     |
+    /// | `u8`   | 6   | `u64`      | | `u16`  | 6   | `u128`     |
+    /// | `u8`   | 7   | `u64`      | | `u16`  | 7   | `u128`     |
+    /// | `u8`   | 8   | `u64`      | | `u16`  | 8   | `u128`     |
+    /// | `u8`   | 9   | `u128`     | | ...    | ... | ...        |
+    /// | `u8`   | 10  | `u128`     | | `u32`  | 1   | `u32`      |
+    /// | `u8`   | 11  | `u128`     | | `u32`  | 2   | `u64`      |
+    /// | `u8`   | 12  | `u128`     | | `u32`  | 3   | `u128`     |
+    /// | `u8`   | 13  | `u128`     | | `u32`  | 4   | `u128`     |
+    /// | `u8`   | 14  | `u128`     | | ...    | ... | ...        |
+    /// | `u8`   | 15  | `u128`     | | `u64`  | 1   | `u64`      |
+    /// | `u8`   | 16  | `u128`     | | `u64`  | 2   | `u128`     |
+    /// | ...    | ... | ...        | | ...    | ... | ...        |
+    /// | ...    | ... | ...        | | `u128` | 1   | `u128`     |
+    ///
+    /// Please note that usize is also supported and its behaviour is the same as the
+    /// relevant integer type for your platform. For example, on a 32 bit system,
+    /// usize is interpreted as a u32 and will have the same expansion types as u32.
     ///
     /// See also [Expand<T, D>::dilate()](crate::DilationMethod::dilate())
     #[inline]

@@ -45,112 +45,37 @@ use std::marker::PhantomData;
 
 use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 
-/// Dilates a subset of bits of the source integer into the same integer type
-///
-/// Dilating using the Fixed method dilates as many bits as possible from the
-/// source integer into an integer of the same type, maximising the memory usage
-/// of a single type. This is useful when you want absolute control over the
-/// dilated type used and want to fit as many dilated bits into the dilated type
-/// as possible.
-///
-/// The number of dilatable bits is known ahead of time and can be retrieved
-/// using the [Fixed::UNDILATED_BITS](crate::DilationMethod::UNDILATED_BITS)
-/// constant.
+/// A DilationMethod implementation which provides fixed dilation meta information
 /// 
-/// Note that when using the fixed method, attempting to dilate a value that
-/// would not fit into the same type will yield a panic. You may use
-/// [Fixed::<T, D>::UNDILATED_MAX](crate::DilationMethod::UNDILATED_MAX) (or
-/// the table below) to determine whether your value will dilate successfully.
-///
-/// It is not necessary to use Fixed directly. Instead, there's a handy helper
-/// trait implemented by all supported integers called DilateFixed. This trait
-/// provides a more convenient method of interating with fixed dilations -
-/// simply call the [dilate_fixed()](DilateFixed::dilate_fixed()) method
-/// on your integer to dilate it.
+/// This trait implementation describes the types involved with a fixed type
+/// dilation as well as some useful constants and wrapper methods which
+/// actually perform the dilations.
+/// 
+/// Although this trait implementation provides the functions for performing
+/// dilations, users should generally prefer to dilate via the [DilateExpand]
+/// trait and its [dilate_fixed()](DilateFixed::dilate_fixed()) method,
+/// which is generally less verbose and therefore more user friendly.
 ///
 /// # Examples
 /// ```
 /// use dilate::*;
 ///
-/// let value: u16 = 0b1101;
+/// assert_eq!(Fixed::<u16, 2>::UNDILATED_MAX, 255);
+/// assert_eq!(Fixed::<u16, 2>::UNDILATED_BITS, 8);
+/// 
+/// assert_eq!(Fixed::<u16, 2>::DILATED_MAX, 0b0101010101010101);
+/// assert_eq!(Fixed::<u16, 2>::DILATED_BITS, 16);
+/// 
+/// let original: u16 = 0b1101;
+/// let dilated = Fixed::<u16, 2>::dilate(original);
 ///
-/// assert_eq!(value.dilate_fixed::<2>(), DilatedInt::<Fixed<u16, 2>>(0b01010001));
-/// assert_eq!(value.dilate_fixed::<2>().0, 0b01010001);
-///
-/// assert_eq!(Fixed::<u16, 2>::dilate(value), DilatedInt::<Fixed<u16, 2>>(0b01010001));
-/// assert_eq!(Fixed::<u16, 2>::dilate(value).0, 0b01010001);
+/// assert_eq!(dilated.0, 0b01010001);
+/// assert_eq!(dilated, DilatedInt::<Fixed<u16, 2>>(0b01010001));
+/// 
+/// assert_eq!(Fixed::<u16, 2>::undilate(dilated), original);
 /// ```
-/// *Two methods for dilating u16 into u16 using the Fixed method*
-///
-/// # Supported Dilations via Fixed
-/// The following is a list of supported combinations of types `T`, dilation
-/// amounts `D`, and the maximum dilatable value. The source integer and the
-/// internal dilated integer types are the same for Fixed dilations.
-///
-/// | T      | D   | Max Value    | | T      | D   | Max Value                            |
-/// | ------ | --- | ------------ | | ------ | --- | ------------------------------------ |
-/// | `u8`   | 1   | `0xff`       | | `u64`  | 1   | `0xffffffffffffffff`                 |
-/// | `u8`   | 2   | `0x0f`       | | `u64`  | 2   | `0x00000000ffffffff`                 |
-/// | `u8`   | 3   | `0x03`       | | `u64`  | 3   | `0x00000000001fffff`                 |
-/// | `u8`   | 4   | `0x03`       | | `u64`  | 4   | `0x000000000000ffff`                 |
-/// | ...    | ... | ...          | | `u64`  | 5   | `0x0000000000000fff`                 |
-/// | `u16`  | 1   | `0xffff`     | | `u64`  | 6   | `0x00000000000003ff`                 |
-/// | `u16`  | 2   | `0x00ff`     | | `u64`  | 7   | `0x00000000000001ff`                 |
-/// | `u16`  | 3   | `0x001f`     | | `u64`  | 8   | `0x00000000000000ff`                 |
-/// | `u16`  | 4   | `0x000f`     | | `u64`  | 9   | `0x000000000000007f`                 |
-/// | `u16`  | 5   | `0x0007`     | | `u64`  | 10  | `0x000000000000003f`                 |
-/// | `u16`  | 6   | `0x0003`     | | `u64`  | 11  | `0x000000000000001f`                 |
-/// | `u16`  | 7   | `0x0003`     | | `u64`  | 12  | `0x000000000000001f`                 |
-/// | `u16`  | 8   | `0x0003`     | | `u64`  | 13  | `0x000000000000000f`                 |
-/// | ...    | ... | ...          | | `u64`  | 14  | `0x000000000000000f`                 |
-/// | `u32`  | 1   | `0xffffffff` | | `u64`  | 15  | `0x000000000000000f`                 |
-/// | `u32`  | 2   | `0x0000ffff` | | `u64`  | 16  | `0x000000000000000f`                 |
-/// | `u32`  | 3   | `0x000003ff` | | ...    | ... | ...                                  |
-/// | `u32`  | 4   | `0x000000ff` | | `u128` | 1   | `0xffffffffffffffffffffffffffffffff` |
-/// | `u32`  | 5   | `0x0000003f` | | `u128` | 2   | `0x0000000000000000ffffffffffffffff` |
-/// | `u32`  | 6   | `0x0000001f` | | `u128` | 3   | `0x0000000000000000000003ffffffffff` |
-/// | `u32`  | 7   | `0x0000000f` | | `u128` | 4   | `0x000000000000000000000000ffffffff` |
-/// | `u32`  | 8   | `0x0000000f` | | `u128` | 5   | `0x00000000000000000000000001ffffff` |
-/// | `u32`  | 9   | `0x00000007` | | `u128` | 6   | `0x000000000000000000000000001fffff` |
-/// | `u32`  | 10  | `0x00000007` | | `u128` | 7   | `0x0000000000000000000000000003ffff` |
-/// | `u32`  | 11  | `0x00000003` | | `u128` | 8   | `0x0000000000000000000000000000ffff` |
-/// | `u32`  | 12  | `0x00000003` | | `u128` | 9   | `0x00000000000000000000000000003fff` |
-/// | `u32`  | 13  | `0x00000003` | | `u128` | 10  | `0x00000000000000000000000000000fff` |
-/// | `u32`  | 14  | `0x00000003` | | `u128` | 11  | `0x000000000000000000000000000007ff` |
-/// | `u32`  | 15  | `0x00000003` | | `u128` | 12  | `0x000000000000000000000000000003ff` |
-/// | `u32`  | 16  | `0x00000003` | | `u128` | 13  | `0x000000000000000000000000000001ff` |
-/// | ...    | ... | ...          | | `u128` | 14  | `0x000000000000000000000000000001ff` |
-/// | ...    | ... | ...          | | `u128` | 15  | `0x000000000000000000000000000000ff` |
-/// | ...    | ... | ...          | | `u128` | 16  | `0x000000000000000000000000000000ff` |
-///
-/// Please note that usize is also supported and its behaviour is the same as the
-/// relevant integer type for your platform. For example, on a 32 bit system,
-/// usize is interpreted as a u32 and will have the same max dilatable value as u32.
-///
-/// # Which Dilation Method to Choose
-/// There are currently two distinct ways to dilate integers; via the
-/// [DilateExpand](crate::expand::DilateExpand) and
-/// [DilateFixed](crate::fixed::DilateFixed) trait implementations. To help
-/// decide which is right for your application, consider the following:
 /// 
-/// Use [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) when
-/// you want all bits of the source integer to be dilated and you don't mind
-/// how the dilated integer is stored behind the scenes. This is the most
-/// intuitive method of interacting with dilated integers.
-/// 
-/// Use [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) when you
-/// want control over the storage type and want to maximise the number of bits
-/// occupied within that storage type.
-/// 
-/// Notice that the difference between the two is that of focus;
-/// [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) focusses on
-/// maximising the usage of the source integer, whereas
-/// [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) focusses on
-/// maximising the usage of the dilated integer.
-/// 
-/// You may also use the raw [Expand](crate::expand::Expand) and
-/// [Fixed](crate::fixed::Fixed) [DilationMethod](crate::DilationMethod)
-/// implementations directly, though they tend to be more verbose.
+/// For more detailed information, see [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed())
 #[derive(Debug, PartialEq, Eq)]
 pub struct Fixed<T, const D: usize>(PhantomData<T>) where T: SupportedType;
 
@@ -184,24 +109,29 @@ impl_fixed!(u64, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_fixed!(u128, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_fixed!(usize, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 
-/// A convenience trait for dilating integers using the [Fixed] method
+/// A convenience trait for dilating integers using the [Fixed] [DilationMethod]
 ///
 /// This trait is implemented by all supported integer types and provides a
 /// convenient and human readable way to dilate integers. Simply call the
 /// [DilateFixed::dilate_fixed()] method to perform the dilation.
 pub trait DilateFixed: SupportedType {
-    /// This method carries out the fixed dilation process
+    /// Dilates a subset of bits of the source integer into the same integer type
     ///
-    /// It converts a raw [Undilated](DilationMethod::Undilated) value to a
-    /// [DilatedInt].
+    /// Dilating using the fixed method dilates a subset of bits from the
+    /// source integer into an integer of the same type, maximising the memory usage
+    /// of a single type. This is useful when you want absolute control over the
+    /// dilated type used and want to fit as many dilated bits into the dilated type
+    /// as possible.
     ///
-    /// This method is provided as a more convenient way to interact with the
-    /// [Fixed] dilation method.
+    /// The number of dilatable bits is known ahead of time and can be retrieved
+    /// using the [Fixed::UNDILATED_BITS](crate::DilationMethod::UNDILATED_BITS)
+    /// constant.
     /// 
-    /// Note that when using the fixed method, attempting to dilate a value that
+    /// # Panics
+    /// When using the fixed method, attempting to dilate a value that
     /// would not fit into the same type will yield a panic. You may use
-    /// [Fixed::<T, D>::UNDILATED_MAX](crate::DilationMethod::UNDILATED_MAX)
-    /// to determine whether your value will dilate successfully.
+    /// [Fixed::<T, D>::UNDILATED_MAX](crate::DilationMethod::UNDILATED_MAX) (or
+    /// the table below) to determine whether your value will dilate successfully.
     ///
     /// # Examples
     /// ```
@@ -209,9 +139,57 @@ pub trait DilateFixed: SupportedType {
     ///
     /// let value: u16 = 0b1101;
     ///
-    /// assert_eq!(value.dilate_fixed::<3>(), DilatedInt::<Fixed<u16, 3>>(0b001001000001));
-    /// assert_eq!(value.dilate_fixed::<3>().0, 0b001001000001);
+    /// assert_eq!(value.dilate_fixed::<2>(), DilatedInt::<Fixed<u16, 2>>(0b01010001));
+    /// assert_eq!(value.dilate_fixed::<2>().0, 0b01010001);
+    /// 
+    /// // Panics with large values
+    /// assert!(std::panic::catch_unwind(|| 0xffffu16.dilate_fixed::<2>()).is_err());
     /// ```
+    ///
+    /// # Supported Fixed Dilations
+    /// The following is a list of supported combinations of types `T`, dilation
+    /// amounts `D`, and the maximum dilatable value. The source integer and the
+    /// internal dilated integer types are the same for Fixed dilations.
+    ///
+    /// | T      | D   | Max Value    | | T      | D   | Max Value                            |
+    /// | ------ | --- | ------------ | | ------ | --- | ------------------------------------ |
+    /// | `u8`   | 1   | `0xff`       | | `u64`  | 1   | `0xffffffffffffffff`                 |
+    /// | `u8`   | 2   | `0x0f`       | | `u64`  | 2   | `0x00000000ffffffff`                 |
+    /// | `u8`   | 3   | `0x03`       | | `u64`  | 3   | `0x00000000001fffff`                 |
+    /// | `u8`   | 4   | `0x03`       | | `u64`  | 4   | `0x000000000000ffff`                 |
+    /// | ...    | ... | ...          | | `u64`  | 5   | `0x0000000000000fff`                 |
+    /// | `u16`  | 1   | `0xffff`     | | `u64`  | 6   | `0x00000000000003ff`                 |
+    /// | `u16`  | 2   | `0x00ff`     | | `u64`  | 7   | `0x00000000000001ff`                 |
+    /// | `u16`  | 3   | `0x001f`     | | `u64`  | 8   | `0x00000000000000ff`                 |
+    /// | `u16`  | 4   | `0x000f`     | | `u64`  | 9   | `0x000000000000007f`                 |
+    /// | `u16`  | 5   | `0x0007`     | | `u64`  | 10  | `0x000000000000003f`                 |
+    /// | `u16`  | 6   | `0x0003`     | | `u64`  | 11  | `0x000000000000001f`                 |
+    /// | `u16`  | 7   | `0x0003`     | | `u64`  | 12  | `0x000000000000001f`                 |
+    /// | `u16`  | 8   | `0x0003`     | | `u64`  | 13  | `0x000000000000000f`                 |
+    /// | ...    | ... | ...          | | `u64`  | 14  | `0x000000000000000f`                 |
+    /// | `u32`  | 1   | `0xffffffff` | | `u64`  | 15  | `0x000000000000000f`                 |
+    /// | `u32`  | 2   | `0x0000ffff` | | `u64`  | 16  | `0x000000000000000f`                 |
+    /// | `u32`  | 3   | `0x000003ff` | | ...    | ... | ...                                  |
+    /// | `u32`  | 4   | `0x000000ff` | | `u128` | 1   | `0xffffffffffffffffffffffffffffffff` |
+    /// | `u32`  | 5   | `0x0000003f` | | `u128` | 2   | `0x0000000000000000ffffffffffffffff` |
+    /// | `u32`  | 6   | `0x0000001f` | | `u128` | 3   | `0x0000000000000000000003ffffffffff` |
+    /// | `u32`  | 7   | `0x0000000f` | | `u128` | 4   | `0x000000000000000000000000ffffffff` |
+    /// | `u32`  | 8   | `0x0000000f` | | `u128` | 5   | `0x00000000000000000000000001ffffff` |
+    /// | `u32`  | 9   | `0x00000007` | | `u128` | 6   | `0x000000000000000000000000001fffff` |
+    /// | `u32`  | 10  | `0x00000007` | | `u128` | 7   | `0x0000000000000000000000000003ffff` |
+    /// | `u32`  | 11  | `0x00000003` | | `u128` | 8   | `0x0000000000000000000000000000ffff` |
+    /// | `u32`  | 12  | `0x00000003` | | `u128` | 9   | `0x00000000000000000000000000003fff` |
+    /// | `u32`  | 13  | `0x00000003` | | `u128` | 10  | `0x00000000000000000000000000000fff` |
+    /// | `u32`  | 14  | `0x00000003` | | `u128` | 11  | `0x000000000000000000000000000007ff` |
+    /// | `u32`  | 15  | `0x00000003` | | `u128` | 12  | `0x000000000000000000000000000003ff` |
+    /// | `u32`  | 16  | `0x00000003` | | `u128` | 13  | `0x000000000000000000000000000001ff` |
+    /// | ...    | ... | ...          | | `u128` | 14  | `0x000000000000000000000000000001ff` |
+    /// | ...    | ... | ...          | | `u128` | 15  | `0x000000000000000000000000000000ff` |
+    /// | ...    | ... | ...          | | `u128` | 16  | `0x000000000000000000000000000000ff` |
+    ///
+    /// Please note that usize is also supported and its behaviour is the same as the
+    /// relevant integer type for your platform. For example, on a 32 bit system,
+    /// usize is interpreted as a u32 and will have the same max dilatable value as u32.
     ///
     /// See also [Fixed<T, D>::dilate()](crate::DilationMethod::dilate())
     #[inline]
