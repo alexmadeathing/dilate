@@ -235,6 +235,10 @@ pub trait DilationMethod: Sized {
     /// ```
     const DILATED_MAX: Self::Dilated;
 
+    // The value 1 as Dilated type - not needed by the user
+    #[doc(hidden)]
+    const DILATED_ONE: Self::Dilated;
+
     /// This function carries out the dilation process, converting the
     /// [DilationMethod::Undilated] value to a [DilatedInt].
     /// 
@@ -323,37 +327,6 @@ pub trait DilationMethod: Sized {
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DilatedInt<A>(pub A::Dilated) where A: DilationMethod;
-
-impl<A> DilatedInt<A>
-where
-    A: DilationMethod
-{
-    /// Adds the value 1 to the dilated int and returns the result
-    /// 
-    /// This method is slightly more optimal than adding 1 via the '+' operator
-    /// 
-    /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
-    #[inline]
-    pub fn plus_one(&self) -> Self
-    where
-        A::Dilated: BitAnd<Output = A::Dilated>,
-        Wrapping<A::Dilated>: Sub<Output = Wrapping<A::Dilated>>
-    {
-        Self((Wrapping(self.0) - Wrapping(A::DILATED_MAX)).0 & A::DILATED_MAX)
-    }
-
-    /// Subtracts the value 1 from the dilated int and returns the result
-    /// 
-    /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
-    #[inline]
-    pub fn minus_one(&self) -> Self
-    where
-        A::Dilated: BitAnd<Output = A::Dilated>,
-        Wrapping<A::Dilated>: Add<Output = Wrapping<A::Dilated>>
-    {
-        Self((Wrapping(self.0) + Wrapping(A::DILATED_MAX)).0 & A::DILATED_MAX)
-    }
-}
 
 impl<A> fmt::Display for DilatedInt<A> where A: DilationMethod, A::Dilated: fmt::Display {
     #[inline]
@@ -448,6 +421,66 @@ where
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         self.0 = (Wrapping(self.0) - Wrapping(rhs.0)).0 & A::DILATED_MAX;
+    }
+}
+
+/// An arithmetic trait which allows explicit addition with the value one
+pub trait AddOne {
+    /// Adds the value 1 to the dilated int and returns the result
+    /// 
+    /// This method is slightly more optimal than adding 1 via the '+' operator
+    /// 
+    /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
+    /// 
+    /// # Examples
+    /// ```
+    /// use dilate::*;
+    /// 
+    /// assert_eq!(0u8.dilate_expand::<3>().add_one().undilate(), 1);
+    /// assert_eq!(127u8.dilate_expand::<3>().add_one().undilate(), 128);
+    /// assert_eq!(255u8.dilate_expand::<3>().add_one().undilate(), 0);
+    /// ```
+    #[must_use]
+    fn add_one(self) -> Self;
+}
+
+impl<DM> AddOne for DilatedInt<DM>
+where
+    DM: DilationMethod,
+    DM::Dilated: BitAnd<Output = DM::Dilated>,
+    Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
+{
+    fn add_one(self) -> Self {
+        Self((Wrapping(self.0) - Wrapping(DM::DILATED_MAX)).0 & DM::DILATED_MAX)
+    }
+}
+
+/// An arithmetic trait which allows explicit subtraction with the value one
+pub trait SubOne {
+    /// Subtracts the value 1 from the dilated int and returns the result
+    /// 
+    /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
+    /// 
+    /// # Examples
+    /// ```
+    /// use dilate::*;
+    /// 
+    /// assert_eq!(0u8.dilate_expand::<3>().sub_one().undilate(), 255);
+    /// assert_eq!(127u8.dilate_expand::<3>().sub_one().undilate(), 126);
+    /// assert_eq!(255u8.dilate_expand::<3>().sub_one().undilate(), 254);
+    /// ```
+    #[must_use]
+    fn sub_one(self) -> Self;
+}
+
+impl<DM> SubOne for DilatedInt<DM>
+where
+    DM: DilationMethod,
+    DM::Dilated: BitAnd<Output = DM::Dilated>,
+    Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
+{
+    fn sub_one(self) -> Self {
+        Self((Wrapping(self.0) - Wrapping(DM::DILATED_ONE)).0 & DM::DILATED_MAX)
     }
 }
 
