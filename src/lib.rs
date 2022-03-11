@@ -144,13 +144,13 @@ pub use crate::fixed::{Fixed, DilateFixed};
 use std::{fmt, ops::{Add, Not, BitAnd, AddAssign, Sub, SubAssign}, num::Wrapping};
 
 /// Denotes an integer type supported by the various dilation and undilation methods
-pub trait SupportedType: internal::DilateExplicit + internal::UndilateExplicit { }
-impl SupportedType for u8 { }
-impl SupportedType for u16 { }
-impl SupportedType for u32 { }
-impl SupportedType for u64 { }
-impl SupportedType for u128 { }
-impl SupportedType for usize { }
+pub trait DilatableType: Copy + internal::DilateExplicit + internal::UndilateExplicit { }
+impl DilatableType for u8 { }
+impl DilatableType for u16 { }
+impl DilatableType for u32 { }
+impl DilatableType for u64 { }
+impl DilatableType for u128 { }
+impl DilatableType for usize { }
 
 /// Allows for custom decoupled dilation behaviours
 /// 
@@ -163,10 +163,13 @@ impl SupportedType for usize { }
 /// dilation trait similar to [DilateExpand](expand::DilateExpand).
 pub trait DilationMethod: Sized {
     /// The external undilated integer type
-    type Undilated: SupportedType;
+    type Undilated: DilatableType;
 
     /// The internal dilated integer type
-    type Dilated: SupportedType;
+    type Dilated: DilatableType;
+
+    /// The dilation amount
+    const D: usize;
 
     /// The number of bits in the [DilationMethod::Undilated] type which
     /// may be dilated into [DilationMethod::Dilated]
@@ -281,7 +284,7 @@ pub trait DilationMethod: Sized {
 /// 
 /// To dilate a regular integer and yield a DilatedInt, use the
 /// [DilateExpand::dilate_expand()] or [DilateFixed::dilate_fixed()]
-/// trait methods. These traits are implemented for all [SupportedType]
+/// trait methods. These traits are implemented for all [DilatableType]
 /// integers.
 /// 
 /// The stored dilated value may be obtained using the tuple field `.0`.

@@ -43,7 +43,7 @@
 
 use std::marker::PhantomData;
 
-use crate::{internal, SupportedType, DilationMethod, DilatedInt};
+use crate::{internal, DilatableType, DilationMethod, DilatedInt};
 
 /// A DilationMethod implementation which provides expanding dilation meta information
 /// 
@@ -77,13 +77,14 @@ use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 /// 
 /// For more detailed information, see [dilate_expand()](crate::expand::DilateExpand::dilate_expand())
 #[derive(Debug, PartialEq, Eq)]
-pub struct Expand<T, const D: usize>(PhantomData<T>) where T: SupportedType;
+pub struct Expand<T, const D: usize>(PhantomData<T>) where T: DilatableType;
 
 macro_rules! impl_expand {
     ($undilated:ty, $(($d:literal, $dilated:ty)),+) => {$(
         impl DilationMethod for Expand<$undilated, $d> {
             type Undilated = $undilated;
             type Dilated = $dilated;
+            const D: usize = $d;
             const UNDILATED_BITS: usize = <$undilated>::BITS as usize;
             const UNDILATED_MAX: Self::Undilated = <$undilated>::MAX;
             const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
@@ -122,7 +123,7 @@ impl_expand!(usize, (1, u64), (2, u128));
 /// This trait is implemented by all supported integer types and provides a
 /// convenient and human readable way to dilate integers. Simply call the
 /// [DilateExpand::dilate_expand()] method to perform the dilation.
-pub trait DilateExpand: SupportedType {
+pub trait DilateExpand: DilatableType {
     /// Dilates all bits of the source integer into a larger integer type
     ///
     /// Dilating using the expand method creates a dilated integer large enough to
@@ -190,7 +191,7 @@ pub trait DilateExpand: SupportedType {
     }
 }
 
-impl<T> DilateExpand for T where T: SupportedType { }
+impl<T> DilateExpand for T where T: DilatableType { }
 
 #[cfg(test)]
 mod tests {

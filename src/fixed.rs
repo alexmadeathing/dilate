@@ -43,7 +43,7 @@
 
 use std::marker::PhantomData;
 
-use crate::{internal, SupportedType, DilationMethod, DilatedInt};
+use crate::{internal, DilatableType, DilationMethod, DilatedInt};
 
 /// A DilationMethod implementation which provides fixed dilation meta information
 /// 
@@ -77,13 +77,14 @@ use crate::{internal, SupportedType, DilationMethod, DilatedInt};
 /// 
 /// For more detailed information, see [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed())
 #[derive(Debug, PartialEq, Eq)]
-pub struct Fixed<T, const D: usize>(PhantomData<T>) where T: SupportedType;
+pub struct Fixed<T, const D: usize>(PhantomData<T>) where T: DilatableType;
 
 macro_rules! impl_fixed {
     ($t:ty, $($d:literal),+) => {$(
         impl DilationMethod for Fixed<$t, $d> {
             type Undilated = $t;
             type Dilated = $t;
+            const D: usize = $d;
             const UNDILATED_BITS: usize = <$t>::BITS as usize / $d;
             const UNDILATED_MAX: Self::Undilated = internal::build_fixed_undilated_max::<$t, $d>() as $t;
             const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
@@ -114,7 +115,7 @@ impl_fixed!(usize, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 /// This trait is implemented by all supported integer types and provides a
 /// convenient and human readable way to dilate integers. Simply call the
 /// [DilateFixed::dilate_fixed()] method to perform the dilation.
-pub trait DilateFixed: SupportedType {
+pub trait DilateFixed: DilatableType {
     /// Dilates a subset of bits of the source integer into the same integer type
     ///
     /// Dilating using the fixed method dilates a subset of bits from the
@@ -198,7 +199,7 @@ pub trait DilateFixed: SupportedType {
     }
 }
 
-impl<T> DilateFixed for T where T: SupportedType { }
+impl<T> DilateFixed for T where T: DilatableType { }
 
 #[cfg(test)]
 mod tests {
