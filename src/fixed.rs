@@ -279,6 +279,26 @@ mod tests {
                         assert_eq!(Fixed::<$t, $d>::DILATED_MAX, TestData::<Fixed<$t, $d>>::dilated_max());
                     }
 
+                    #[test]
+                    fn plus_one_is_correct() {
+                        for i in 0..10 {
+                            let value = VALUES[$d][i] as <Fixed::<$t, $d> as DilationMethod>::Dilated & Fixed::<$t, $d>::DILATED_MAX;
+                            let value_plus_one = VALUES[$d][i + 1] as <Fixed::<$t, $d> as DilationMethod>::Dilated & Fixed::<$t, $d>::DILATED_MAX;
+                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(value).plus_one().0, value_plus_one);
+                        }
+                        assert_eq!(DilatedInt::<Fixed<$t, $d>>(Fixed::<$t, $d>::DILATED_MAX).plus_one().0, 0);
+                    }
+
+                    #[test]
+                    fn minus_one_is_correct() {
+                        for i in 10..0 {
+                            let value = VALUES[$d][i] as <Fixed::<$t, $d> as DilationMethod>::Dilated & Fixed::<$t, $d>::DILATED_MAX;
+                            let value_minus_one = VALUES[$d][i - 1] as <Fixed::<$t, $d> as DilationMethod>::Dilated & Fixed::<$t, $d>::DILATED_MAX;
+                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(value).minus_one().0, value_minus_one);
+                        }
+                        assert_eq!(DilatedInt::<Fixed<$t, $d>>(0).minus_one().0, Fixed::<$t, $d>::DILATED_MAX);
+                    }
+
                     // Unique to Fixed dilations
                     #[test]
                     #[should_panic(expected = "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)")]

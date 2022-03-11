@@ -268,6 +268,26 @@ mod tests {
                     }
 
                     #[test]
+                    fn plus_one_is_correct() {
+                        for i in 0..10 {
+                            let value = VALUES[$d][i] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
+                            let value_plus_one = VALUES[$d][i + 1] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
+                            assert_eq!(DilatedInt::<Expand<$t, $d>>(value).plus_one().0, value_plus_one);
+                        }
+                        assert_eq!(DilatedInt::<Expand<$t, $d>>(Expand::<$t, $d>::DILATED_MAX).plus_one().0, 0);
+                    }
+
+                    #[test]
+                    fn minus_one_is_correct() {
+                        for i in 10..0 {
+                            let value = VALUES[$d][i] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
+                            let value_minus_one = VALUES[$d][i - 1] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
+                            assert_eq!(DilatedInt::<Expand<$t, $d>>(value).minus_one().0, value_minus_one);
+                        }
+                        assert_eq!(DilatedInt::<Expand<$t, $d>>(0).minus_one().0, Expand::<$t, $d>::DILATED_MAX);
+                    }
+
+                    #[test]
                     fn dilate_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
                         for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
