@@ -324,6 +324,37 @@ pub trait DilationMethod: Sized {
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DilatedInt<A>(pub A::Dilated) where A: DilationMethod;
 
+impl<A> DilatedInt<A>
+where
+    A: DilationMethod
+{
+    /// Adds the value 1 to the dilated int and returns the result
+    /// 
+    /// This method is slightly more optimal than adding 1 via the '+' operator
+    /// 
+    /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
+    #[inline]
+    pub fn plus_one(&self) -> Self
+    where
+        A::Dilated: BitAnd<Output = A::Dilated>,
+        Wrapping<A::Dilated>: Sub<Output = Wrapping<A::Dilated>>
+    {
+        Self((Wrapping(self.0) - Wrapping(A::DILATED_MAX)).0 & A::DILATED_MAX)
+    }
+
+    /// Subtracts the value 1 from the dilated int and returns the result
+    /// 
+    /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
+    #[inline]
+    pub fn minus_one(&self) -> Self
+    where
+        A::Dilated: BitAnd<Output = A::Dilated>,
+        Wrapping<A::Dilated>: Add<Output = Wrapping<A::Dilated>>
+    {
+        Self((Wrapping(self.0) + Wrapping(A::DILATED_MAX)).0 & A::DILATED_MAX)
+    }
+}
+
 impl<A> fmt::Display for DilatedInt<A> where A: DilationMethod, A::Dilated: fmt::Display {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
