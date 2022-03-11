@@ -89,6 +89,7 @@ macro_rules! impl_expand {
             const UNDILATED_MAX: Self::Undilated = <$undilated>::MAX;
             const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
             const DILATED_MAX: Self::Dilated = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
+            const DILATED_ONE: Self::Dilated = 1;
 
             #[inline]
             fn dilate(value: Self::Undilated) -> DilatedInt<Self> {
@@ -254,7 +255,7 @@ mod tests {
             paste! {
                 mod [< expand_ $t _d $d >] {
                     use crate::shared_test_data::{TestData, VALUES, DILATION_TEST_CASES};
-                    use crate::{DilationMethod, DilatedInt, Undilate};
+                    use crate::{DilationMethod, DilatedInt, Undilate, AddOne, SubOne};
                     use super::super::{Expand, DilateExpand};
 
                     #[test]
@@ -268,23 +269,23 @@ mod tests {
                     }
 
                     #[test]
-                    fn plus_one_is_correct() {
+                    fn add_one_is_correct() {
                         for i in 0..10 {
                             let value = VALUES[$d][i] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
-                            let value_plus_one = VALUES[$d][i + 1] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
-                            assert_eq!(DilatedInt::<Expand<$t, $d>>(value).plus_one().0, value_plus_one);
+                            let value_add_one = VALUES[$d][i + 1] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
+                            assert_eq!(DilatedInt::<Expand<$t, $d>>(value).add_one().0, value_add_one);
                         }
-                        assert_eq!(DilatedInt::<Expand<$t, $d>>(Expand::<$t, $d>::DILATED_MAX).plus_one().0, 0);
+                        assert_eq!(DilatedInt::<Expand<$t, $d>>(Expand::<$t, $d>::DILATED_MAX).add_one().0, 0);
                     }
 
                     #[test]
-                    fn minus_one_is_correct() {
+                    fn sub_one_is_correct() {
                         for i in 10..0 {
                             let value = VALUES[$d][i] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
-                            let value_minus_one = VALUES[$d][i - 1] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
-                            assert_eq!(DilatedInt::<Expand<$t, $d>>(value).minus_one().0, value_minus_one);
+                            let value_sub_one = VALUES[$d][i - 1] as <Expand::<$t, $d> as DilationMethod>::Dilated & Expand::<$t, $d>::DILATED_MAX;
+                            assert_eq!(DilatedInt::<Expand<$t, $d>>(value).sub_one().0, value_sub_one);
                         }
-                        assert_eq!(DilatedInt::<Expand<$t, $d>>(0).minus_one().0, Expand::<$t, $d>::DILATED_MAX);
+                        assert_eq!(DilatedInt::<Expand<$t, $d>>(0).sub_one().0, Expand::<$t, $d>::DILATED_MAX);
                     }
 
                     #[test]
