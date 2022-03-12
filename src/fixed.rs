@@ -89,6 +89,7 @@ macro_rules! impl_fixed {
             const UNDILATED_MAX: Self::Undilated = internal::build_fixed_undilated_max::<$t, $d>() as $t;
             const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
             const DILATED_MAX: Self::Dilated = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
+            const DILATED_MASK: Self::Dilated = Self::DILATED_MAX * ((1 << $d) - 1);
             const DILATED_ONE: Self::Dilated = 1;
 
             #[inline]
