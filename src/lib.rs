@@ -235,6 +235,20 @@ pub trait DilationMethod: Sized {
     /// ```
     const DILATED_MAX: Self::Dilated;
 
+    /// A mask of all dilated bits, including 0 bits
+    /// 
+    /// This constant holds a set of consecutive N 1 bits, where N is equal to
+    /// [DilationMethod::DILATED_BITS].
+    /// 
+    /// # Examples
+    /// ```
+    /// use dilate::*;
+    /// 
+    /// assert_eq!(Expand::<u8, 3>::DILATED_MASK, 0xffffff);
+    /// assert_eq!(Fixed::<u16, 3>::DILATED_MASK, 0x7FFF);
+    /// ```
+    const DILATED_MASK: Self::Dilated;
+
     // The value 1 as Dilated type - not needed by the user
     #[doc(hidden)]
     const DILATED_ONE: Self::Dilated;
