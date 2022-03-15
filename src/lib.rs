@@ -144,7 +144,16 @@ pub use crate::fixed::{Fixed, DilateFixed};
 use std::{fmt, ops::{Add, Not, BitAnd, AddAssign, Sub, SubAssign}, num::Wrapping};
 
 /// Denotes an integer type supported by the various dilation and undilation methods
-pub trait DilatableType: Copy + internal::DilateExplicit + internal::UndilateExplicit { }
+pub trait DilatableType:
+    Default +
+    Copy +
+    Eq +
+    Not<Output = Self> +
+    BitAnd<Output = Self> +
+    internal::DilateExplicit +
+    internal::UndilateExplicit
+{
+}
 impl DilatableType for u8 { }
 impl DilatableType for u16 { }
 impl DilatableType for u32 { }
@@ -344,7 +353,7 @@ pub trait DilationMethod: Sized {
 /// ```
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DilatedInt<A>(A::Dilated) where A: DilationMethod;
+pub struct DilatedInt<DM>(DM::Dilated) where DM: DilationMethod;
 
 impl<DM> DilatedInt<DM>
 where
@@ -360,7 +369,7 @@ where
     /// # Panics
     /// * Panics if parameter 'dilated' contains bits outside expected positions indicated by [DilationMethod::DILATED_MASK]
     #[inline]
-    pub fn new(dilated: DM::Dilated) -> Self where DM::Dilated: Eq + Not<Output = DM::Dilated> + BitAnd<Output = DM::Dilated> {
+    pub fn new(dilated: DM::Dilated) -> Self {
         debug_assert!(dilated & !DM::DILATED_MAX == DM::DILATED_ZERO, "Parameter 'dilated' contains bits outside expected positions indicated by DilationMethod::DILATED_MAX");
         Self(dilated)
     }
@@ -372,7 +381,7 @@ where
     }
 }
 
-impl<A> fmt::Display for DilatedInt<A> where A: DilationMethod, A::Dilated: fmt::Display {
+impl<DM> fmt::Display for DilatedInt<DM> where DM: DilationMethod, DM::Dilated: fmt::Display {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -407,64 +416,60 @@ pub trait Undilate {
     fn undilate(self) -> Self::Undilated;
 }
 
-impl<A> Undilate for DilatedInt<A> where A: DilationMethod {
-    type Undilated = A::Undilated;
+impl<DM> Undilate for DilatedInt<DM> where DM: DilationMethod {
+    type Undilated = DM::Undilated;
 
     #[inline]
     fn undilate(self) -> Self::Undilated {
-        A::undilate(self)
+        DM::undilate(self)
     }
 }
 
-impl<A> Add for DilatedInt<A>
+impl<DM> Add for DilatedInt<DM>
 where
-    A: DilationMethod,
-    A::Dilated: Copy + Default + Not<Output = A::Dilated> + BitAnd<Output = A::Dilated>,
-    Wrapping<A::Dilated>: Add<Output = Wrapping<A::Dilated>>
+    DM: DilationMethod,
+    Wrapping<DM::Dilated>: Add<Output = Wrapping<DM::Dilated>>
 {
     type Output = Self;
 
     #[inline]
     fn add(self, rhs: Self) -> Self::Output {
-        Self((Wrapping(self.0) + Wrapping(!A::DILATED_MAX) + Wrapping(rhs.0)).0 & A::DILATED_MAX)
+        Self((Wrapping(self.0) + Wrapping(!DM::DILATED_MAX) + Wrapping(rhs.0)).0 & DM::DILATED_MAX)
     }
 }
 
-impl<A> AddAssign for DilatedInt<A>
+impl<DM> AddAssign for DilatedInt<DM>
 where
-    A: DilationMethod,
-    A::Dilated: Copy + Default + Not<Output = A::Dilated> + BitAnd<Output = A::Dilated>,
-    Wrapping<A::Dilated>: Add<Output = Wrapping<A::Dilated>>
+    DM: DilationMethod,
+    Wrapping<DM::Dilated>: Add<Output = Wrapping<DM::Dilated>>
 {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
-        self.0 = (Wrapping(self.0) + Wrapping(!A::DILATED_MAX) + Wrapping(rhs.0)).0 & A::DILATED_MAX;
+        self.0 = (Wrapping(self.0) + Wrapping(!DM::DILATED_MAX) + Wrapping(rhs.0)).0 & DM::DILATED_MAX;
     }
 }
 
-impl<A> Sub for DilatedInt<A>
+impl<DM> Sub for DilatedInt<DM>
 where
-    A: DilationMethod,
-    A::Dilated: Copy + Default + BitAnd<Output = A::Dilated>,
-    Wrapping<A::Dilated>: Sub<Output = Wrapping<A::Dilated>>
+    DM: DilationMethod,
+    Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
 {
     type Output = Self;
 
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
-        Self((Wrapping(self.0) - Wrapping(rhs.0)).0 & A::DILATED_MAX)
+        Self((Wrapping(self.0) - Wrapping(rhs.0)).0 & DM::DILATED_MAX)
     }
 }
 
-impl<A> SubAssign for DilatedInt<A>
+impl<DM> SubAssign for DilatedInt<DM>
 where
-    A: DilationMethod,
-    A::Dilated: Copy + Default + BitAnd<Output = A::Dilated>,
-    Wrapping<A::Dilated>: Sub<Output = Wrapping<A::Dilated>>
+    DM: DilationMethod,
+    Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
 {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
-        self.0 = (Wrapping(self.0) - Wrapping(rhs.0)).0 & A::DILATED_MAX;
+        self.0 = (Wrapping(self.0) - Wrapping(rhs.0)).0 & DM::DILATED_MAX;
     }
 }
 
@@ -491,7 +496,6 @@ pub trait AddOne {
 impl<DM> AddOne for DilatedInt<DM>
 where
     DM: DilationMethod,
-    DM::Dilated: BitAnd<Output = DM::Dilated>,
     Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
 {
     fn add_one(self) -> Self {
@@ -520,7 +524,6 @@ pub trait SubOne {
 impl<DM> SubOne for DilatedInt<DM>
 where
     DM: DilationMethod,
-    DM::Dilated: BitAnd<Output = DM::Dilated>,
     Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
 {
     fn sub_one(self) -> Self {
