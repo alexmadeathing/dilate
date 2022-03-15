@@ -249,6 +249,10 @@ pub trait DilationMethod: Sized {
     /// ```
     const DILATED_MASK: Self::Dilated;
 
+    // The value 0 as Dilated type - not needed by the user
+    #[doc(hidden)]
+    const DILATED_ZERO: Self::Dilated;
+
     // The value 1 as Dilated type - not needed by the user
     #[doc(hidden)]
     const DILATED_ONE: Self::Dilated;
