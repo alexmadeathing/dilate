@@ -337,25 +337,35 @@ pub trait DilationMethod: Sized {
 /// let original: u8 = 0b1011;
 /// 
 /// let dilated = original.dilate_expand::<3>();
-/// assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
-/// assert_eq!(dilated.0, 0b1000001001);
+/// assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>::new(0b1000001001));
+/// assert_eq!(dilated.value(), 0b1000001001);
 /// 
 /// assert_eq!(dilated.undilate(), original);
 /// ```
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DilatedInt<A>(pub A::Dilated) where A: DilationMethod;
+pub struct DilatedInt<A>(A::Dilated) where A: DilationMethod;
 
 impl<DM> DilatedInt<DM>
 where
     DM: DilationMethod,
 {
+    /// Create new dilated int from known dilated value
+    /// 
+    /// This function creates a new [DilatedInt]. The parameter 'dilated'
+    /// should be a valid pre-dilated integer containing bits set only in
+    /// positions indicated by [DilationMethod::DILATED_MAX]. This ensures
+    /// validity for the various encoding and arithmetic methods.
+    /// 
+    /// # Panics
+    /// * Panics if parameter 'dilated' contains bits outside expected positions indicated by [DilationMethod::DILATED_MASK]
     #[inline]
-    pub fn new(dilated: DM::Dilated) -> Self where DM::Dilated: Ord + BitAnd<Output = DM::Dilated> {
-        debug_assert!(dilated <= DM::DILATED_MASK, "Parameter 'dilated' exceeds maximum dilated mask (DilationMethod::DILATED_MASK)");
-        Self(dilated & DM::DILATED_MAX)
+    pub fn new(dilated: DM::Dilated) -> Self where DM::Dilated: Eq + Not<Output = DM::Dilated> + BitAnd<Output = DM::Dilated> {
+        debug_assert!(dilated & !DM::DILATED_MAX == DM::DILATED_ZERO, "Parameter 'dilated' contains bits outside expected positions indicated by DilationMethod::DILATED_MAX");
+        Self(dilated)
     }
 
+    /// Access dilated value
     #[inline]
     pub fn value(&self) -> DM::Dilated {
         self.0

@@ -275,13 +275,15 @@ mod tests {
                     }
 
                     #[test]
-                    #[should_panic(expected = "Parameter 'dilated' exceeds maximum dilated mask (DilationMethod::DILATED_MASK)")]
-                    #[allow(arithmetic_overflow)]
-                    fn new_too_large_panics() {
-                        if DilationMethodT::DILATED_MASK != DilatedT::MAX {
-                            DilatedIntT::new(DilationMethodT::DILATED_MASK + 1);
-                        } else {
-                            panic!("Parameter 'dilated' exceeds maximum dilated mask (DilationMethod::DILATED_MASK)");
+                    fn new_invalid_panics() {
+                        for bit in 0..DilatedT::BITS {
+                            if bit % $d != 0 {
+                                let dilated = 1 << bit;
+                                let result = std::panic::catch_unwind(|| DilatedIntT::new(dilated));
+                                if !result.is_err() {
+                                    panic!("Test did not panic as expected");
+                                }
+                            }
                         }
                     }
 
@@ -292,10 +294,6 @@ mod tests {
                         assert_eq!(DilatedIntT::new(VALUES[$d][2] as DilatedT).0, VALUES[$d][2] as DilatedT);
                         assert_eq!(DilatedIntT::new(VALUES[$d][3] as DilatedT).0, VALUES[$d][3] as DilatedT);
                         assert_eq!(DilatedIntT::new(DilationMethodT::DILATED_MAX).0, DilationMethodT::DILATED_MAX);
-
-                        // Note that it's okay to use bits that do not line up with DILATED_MAX as long as the total fits within DILATED_MASK
-                        // Bits that don't belong in DILATED_MAX are masked out
-                        assert_eq!(DilatedIntT::new(DilationMethodT::DILATED_MASK).0, DilationMethodT::DILATED_MAX);
                     }
 
                     #[test]
