@@ -59,7 +59,7 @@ let original: u8 = 0b1101;
 
 // Dilating
 let dilated = original.dilate_expand::<2>();
-assert_eq!(dilated.0, 0b1010001);
+assert_eq!(dilated.value(), 0b1010001);
 
 // This is the actual dilated type
 assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
@@ -76,7 +76,7 @@ let original: u8 = 0b1011;
 
 // Dilating
 let dilated = original.dilate_expand::<3>();
-assert_eq!(dilated.0, 0b1000001001);
+assert_eq!(dilated.value(), 0b1000001001);
 
 // This is the actual dilated type
 assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));

@@ -104,10 +104,10 @@
 //! 
 //! // Dilating
 //! let dilated = original.dilate_expand::<2>();
-//! assert_eq!(dilated.0, 0b1010001);
+//! assert_eq!(dilated.value(), 0b1010001);
 //! 
 //! // This is the actual dilated type
-//! assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
+//! assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>::new(0b1010001));
 //! 
 //! // Undilating
 //! assert_eq!(dilated.undilate(), original);
@@ -121,10 +121,10 @@
 //! 
 //! // Dilating
 //! let dilated = original.dilate_expand::<3>();
-//! assert_eq!(dilated.0, 0b1000001001);
+//! assert_eq!(dilated.value(), 0b1000001001);
 //! 
 //! // This is the actual dilated type
-//! assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
+//! assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>::new(0b1000001001));
 //! 
 //! // Undilating
 //! assert_eq!(dilated.undilate(), original);
@@ -264,11 +264,11 @@ pub trait DilationMethod: Sized {
     /// ```
     /// use dilate::*;
     /// 
-    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>(0b01010001));
-    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101).0, 0b01010001);
+    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>::new(0b01010001));
+    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101).value(), 0b01010001);
     /// 
-    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101), DilatedInt::<Fixed<u16, 3>>(0b001001000001));
-    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101).0, 0b001001000001);
+    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101), DilatedInt::<Fixed<u16, 3>>::new(0b001001000001));
+    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101).value(), 0b001001000001);
     /// ```
     /// 
     /// See also [DilateExpand::dilate_expand()], [DilateFixed::dilate_fixed()]
@@ -320,8 +320,8 @@ pub trait DilationMethod: Sized {
 /// let original: u8 = 0b1101;
 /// 
 /// let dilated = original.dilate_expand::<2>();
-/// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
-/// assert_eq!(dilated.0, 0b1010001);
+/// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>::new(0b1010001));
+/// assert_eq!(dilated.value(), 0b1010001);
 /// 
 /// assert_eq!(dilated.undilate(), original);
 /// ```

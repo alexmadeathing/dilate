@@ -69,8 +69,8 @@ use crate::{internal, DilatableType, DilationMethod, DilatedInt};
 /// let original: u16 = 0b1101;
 /// let dilated = Fixed::<u16, 2>::dilate(original);
 ///
-/// assert_eq!(dilated.0, 0b01010001);
-/// assert_eq!(dilated, DilatedInt::<Fixed<u16, 2>>(0b01010001));
+/// assert_eq!(dilated.value(), 0b01010001);
+/// assert_eq!(dilated, DilatedInt::<Fixed<u16, 2>>::new(0b01010001));
 /// 
 /// assert_eq!(Fixed::<u16, 2>::undilate(dilated), original);
 /// ```
@@ -142,8 +142,8 @@ pub trait DilateFixed: DilatableType {
     ///
     /// let value: u16 = 0b1101;
     ///
-    /// assert_eq!(value.dilate_fixed::<2>(), DilatedInt::<Fixed<u16, 2>>(0b01010001));
-    /// assert_eq!(value.dilate_fixed::<2>().0, 0b01010001);
+    /// assert_eq!(value.dilate_fixed::<2>(), DilatedInt::<Fixed<u16, 2>>::new(0b01010001));
+    /// assert_eq!(value.dilate_fixed::<2>().value(), 0b01010001);
     /// 
     /// // Panics with large values
     /// assert!(std::panic::catch_unwind(|| 0xffffu16.dilate_fixed::<2>()).is_err());

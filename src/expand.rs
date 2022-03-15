@@ -69,8 +69,8 @@ use crate::{internal, DilatableType, DilationMethod, DilatedInt};
 /// let original: u8 = 0b1101;
 /// let dilated = Expand::<u8, 2>::dilate(original);
 ///
-/// assert_eq!(dilated.0, 0b01010001);
-/// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b01010001));
+/// assert_eq!(dilated.value(), 0b01010001);
+/// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>::new(0b01010001));
 /// 
 /// assert_eq!(Expand::<u8, 2>::undilate(dilated), original);
 /// ```
@@ -140,8 +140,8 @@ pub trait DilateExpand: DilatableType {
     ///
     /// let value: u8 = 0b1101;
     ///
-    /// assert_eq!(value.dilate_expand::<2>(), DilatedInt::<Expand<u8, 2>>(0b01010001));
-    /// assert_eq!(value.dilate_expand::<2>().0, 0b01010001);
+    /// assert_eq!(value.dilate_expand::<2>(), DilatedInt::<Expand<u8, 2>>::new(0b01010001));
+    /// assert_eq!(value.dilate_expand::<2>().value(), 0b01010001);
     /// ```
     ///
     /// # The Storage Type
