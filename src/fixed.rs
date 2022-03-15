@@ -271,34 +271,51 @@ mod tests {
                     use crate::{DilationMethod, DilatedInt, Undilate, AddOne, SubOne};
                     use super::super::{Fixed, DilateFixed};
 
+                    type DilationMethodT = Fixed<$t, $d>;
+                    type DilatedIntT = DilatedInt<DilationMethodT>;
+                    type DilatedT = <DilationMethodT as DilationMethod>::Dilated;
+
                     #[test]
                     fn undilated_max_is_correct() {
-                        assert_eq!(Fixed::<$t, $d>::UNDILATED_MAX, TestData::<Fixed<$t, $d>>::undilated_max());
+                        assert_eq!(DilationMethodT::UNDILATED_MAX, TestData::<DilationMethodT>::undilated_max());
                     }
 
                     #[test]
                     fn dilated_max_is_correct() {
-                        assert_eq!(Fixed::<$t, $d>::DILATED_MAX, TestData::<Fixed<$t, $d>>::dilated_max());
+                        assert_eq!(DilationMethodT::DILATED_MAX, TestData::<DilationMethodT>::dilated_max());
                     }
 
                     #[test]
-                    fn add_one_is_correct() {
-                        for i in 0..10 {
-                            let value = VALUES[$d][i] as <Fixed::<$t, $d> as DilationMethod>::Dilated & Fixed::<$t, $d>::DILATED_MAX;
-                            let value_add_one = VALUES[$d][i + 1] as <Fixed::<$t, $d> as DilationMethod>::Dilated & Fixed::<$t, $d>::DILATED_MAX;
-                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(value).add_one().0, value_add_one);
+                    #[should_panic(expected = "Parameter 'dilated' exceeds maximum dilated mask (DilationMethod::DILATED_MASK)")]
+                    #[allow(arithmetic_overflow)]
+                    fn new_too_large_panics() {
+                        if DilationMethodT::DILATED_MASK != DilatedT::MAX {
+                            DilatedIntT::new(DilationMethodT::DILATED_MASK + 1);
+                        } else {
+                            panic!("Parameter 'dilated' exceeds maximum dilated mask (DilationMethod::DILATED_MASK)");
                         }
-                        assert_eq!(DilatedInt::<Fixed<$t, $d>>(Fixed::<$t, $d>::DILATED_MAX).add_one().0, 0);
                     }
 
                     #[test]
-                    fn sub_one_is_correct() {
-                        for i in 10..0 {
-                            let value = VALUES[$d][i] as <Fixed::<$t, $d> as DilationMethod>::Dilated & Fixed::<$t, $d>::DILATED_MAX;
-                            let value_sub_one = VALUES[$d][i - 1] as <Fixed::<$t, $d> as DilationMethod>::Dilated & Fixed::<$t, $d>::DILATED_MAX;
-                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(value).sub_one().0, value_sub_one);
-                        }
-                        assert_eq!(DilatedInt::<Fixed<$t, $d>>(0).sub_one().0, Fixed::<$t, $d>::DILATED_MAX);
+                    fn new_valid_stores_correct_value() {
+                        assert_eq!(DilatedIntT::new(VALUES[$d][0] as DilatedT).0, VALUES[$d][0] as DilatedT);
+                        assert_eq!(DilatedIntT::new(VALUES[$d][1] as DilatedT).0, VALUES[$d][1] as DilatedT);
+                        assert_eq!(DilatedIntT::new(VALUES[$d][2] as DilatedT).0, VALUES[$d][2] as DilatedT);
+                        assert_eq!(DilatedIntT::new(VALUES[$d][3] as DilatedT).0, VALUES[$d][3] as DilatedT);
+                        assert_eq!(DilatedIntT::new(DilationMethodT::DILATED_MAX).0, DilationMethodT::DILATED_MAX);
+
+                        // Note that it's okay to use bits that do not line up with DILATED_MAX as long as the total fits within DILATED_MASK
+                        // Bits that don't belong in DILATED_MAX are masked out
+                        assert_eq!(DilatedIntT::new(DilationMethodT::DILATED_MASK).0, DilationMethodT::DILATED_MAX);
+                    }
+
+                    #[test]
+                    fn value_returns_unmodified_value() {
+                        assert_eq!(DilatedInt::<DilationMethodT>(VALUES[$d][0] as DilatedT).value(), VALUES[$d][0] as DilatedT);
+                        assert_eq!(DilatedInt::<DilationMethodT>(VALUES[$d][1] as DilatedT).value(), VALUES[$d][1] as DilatedT);
+                        assert_eq!(DilatedInt::<DilationMethodT>(VALUES[$d][2] as DilatedT).value(), VALUES[$d][2] as DilatedT);
+                        assert_eq!(DilatedInt::<DilationMethodT>(VALUES[$d][3] as DilatedT).value(), VALUES[$d][3] as DilatedT);
+                        assert_eq!(DilatedInt::<DilationMethodT>(DilationMethodT::DILATED_MAX).value(), DilationMethodT::DILATED_MAX);
                     }
 
                     // Unique to Fixed dilations
@@ -306,7 +323,7 @@ mod tests {
                     #[should_panic(expected = "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)")]
                     fn dilate_too_large_a_should_panic() {
                         if $d != 1 {
-                            Fixed::<$t, $d>::dilate(TestData::<Fixed<$t, $d>>::undilated_max() + 1);
+                            DilationMethodT::dilate(TestData::<DilationMethodT>::undilated_max() + 1);
                         } else {
                             // D1 will never panic because the maximum dilatable value is equal to T::MAX
                             // So we'll hack a panic in here
@@ -319,7 +336,7 @@ mod tests {
                     #[should_panic(expected = "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)")]
                     fn dilate_too_large_b_should_panic() {
                         if $d != 1 {
-                            (TestData::<Fixed<$t, $d>>::undilated_max() + 1).dilate_fixed::<$d>();
+                            (TestData::<DilationMethodT>::undilated_max() + 1).dilate_fixed::<$d>();
                         } else {
                             // D1 will never panic because the maximum dilatable value is equal to T::MAX
                             // So we'll hack a panic in here
@@ -332,10 +349,10 @@ mod tests {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
                         for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
                             for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
-                                let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<Fixed<$t, $d>>::undilated_max();
-                                let dilated = (*dilated_a ^ *dilated_b) as <Fixed<$t, $d> as DilationMethod>::Dilated & TestData::<Fixed<$t, $d>>::dilated_max();
-                                assert_eq!(Fixed::<$t, $d>::dilate(undilated), DilatedInt::<Fixed<$t, $d>>(dilated));
-                                assert_eq!(undilated.dilate_fixed::<$d>(), DilatedInt::<Fixed<$t, $d>>(dilated));
+                                let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<DilationMethodT>::undilated_max();
+                                let dilated = (*dilated_a ^ *dilated_b) as DilatedT & TestData::<DilationMethodT>::dilated_max();
+                                assert_eq!(DilationMethod::dilate(undilated), DilatedInt::<DilationMethodT>(dilated));
+                                assert_eq!(undilated.dilate_fixed::<$d>(), DilatedInt::<DilationMethodT>(dilated));
                             }
                         }
                     }
@@ -345,10 +362,10 @@ mod tests {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
                         for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
                             for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
-                                let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<Fixed<$t, $d>>::undilated_max();
-                                let dilated = (*dilated_a ^ *dilated_b) as <Fixed<$t, $d> as DilationMethod>::Dilated & TestData::<Fixed<$t, $d>>::dilated_max();
-                                assert_eq!(Fixed::<$t, $d>::undilate(DilatedInt::<Fixed<$t, $d>>(dilated)), undilated);
-                                assert_eq!(DilatedInt::<Fixed<$t, $d>>(dilated).undilate(), undilated);
+                                let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<DilationMethodT>::undilated_max();
+                                let dilated = (*dilated_a ^ *dilated_b) as DilatedT & TestData::<DilationMethodT>::dilated_max();
+                                assert_eq!(DilationMethod::undilate(DilatedInt::<DilationMethodT>(dilated)), undilated);
+                                assert_eq!(DilatedInt::<DilationMethodT>(dilated).undilate(), undilated);
                             }
                         }
                     }
@@ -365,15 +382,14 @@ mod tests {
                             (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 + 0 = 2
                             (VALUES[$d][2], VALUES[$d][1], VALUES[$d][3]), // 2 + 1 = 3
                             (VALUES[$d][2], VALUES[$d][2], VALUES[$d][4]), // 2 + 2 = 4
-                            (TestData::<Fixed<$t, $d>>::dilated_max() as u128, VALUES[$d][1], VALUES[$d][0]), // max + 1 = 0
+                            (TestData::<DilationMethodT>::dilated_max() as u128, VALUES[$d][1], VALUES[$d][0]), // max + 1 = 0
                         ];
 
                         // Some formats won't support arithmetic (for example u8 D8)
                         // So we have to filter to ensure they support all numbers involved with a particular test case
-                        let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
+                        let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type DilatedT = <Fixed<$t, $d> as DilationMethod>::Dilated;
-                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(*a as DilatedT) + DilatedInt::<Fixed<$t, $d>>(*b as DilatedT), DilatedInt::<Fixed<$t, $d>>(*ans as DilatedT));
+                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT) + DilatedInt::<DilationMethodT>(*b as DilatedT), DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -389,17 +405,16 @@ mod tests {
                             (VALUES[$d][2], VALUES[$d][0], VALUES[$d][2]), // 2 += 0 = 2
                             (VALUES[$d][2], VALUES[$d][1], VALUES[$d][3]), // 2 += 1 = 3
                             (VALUES[$d][2], VALUES[$d][2], VALUES[$d][4]), // 2 += 2 = 4
-                            (TestData::<Fixed<$t, $d>>::dilated_max() as u128, VALUES[$d][1], VALUES[$d][0]), // max += 1 = 0
+                            (TestData::<DilationMethodT>::dilated_max() as u128, VALUES[$d][1], VALUES[$d][0]), // max += 1 = 0
                         ];
 
                         // Some formats won't support arithmetic (for example u8 D8)
                         // So we have to filter to ensure they support all numbers involved with a particular test case
-                        let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
+                        let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type DilatedT = <Fixed<$t, $d> as DilationMethod>::Dilated;
-                            let mut assigned = DilatedInt::<Fixed<$t, $d>>(*a as DilatedT);
-                            assigned += DilatedInt::<Fixed<$t, $d>>(*b as DilatedT);
-                            assert_eq!(assigned, DilatedInt::<Fixed<$t, $d>>(*ans as DilatedT));
+                            let mut assigned = DilatedInt::<DilationMethodT>(*a as DilatedT);
+                            assigned += DilatedInt::<DilationMethodT>(*b as DilatedT);
+                            assert_eq!(assigned, DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -415,15 +430,14 @@ mod tests {
                             (VALUES[$d][4], VALUES[$d][0], VALUES[$d][4]), // 4 - 0 = 4
                             (VALUES[$d][4], VALUES[$d][1], VALUES[$d][3]), // 4 - 1 = 3
                             (VALUES[$d][4], VALUES[$d][2], VALUES[$d][2]), // 4 - 2 = 2
-                            (VALUES[$d][0], VALUES[$d][1], TestData::<Fixed<$t, $d>>::dilated_max() as u128), // 0 - 1 = max
+                            (VALUES[$d][0], VALUES[$d][1], TestData::<DilationMethodT>::dilated_max() as u128), // 0 - 1 = max
                         ];
 
                         // Some formats won't support arithmetic (for example u8 D8)
                         // So we have to filter to ensure they support all numbers involved with a particular test case
-                        let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
+                        let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type DilatedT = <Fixed<$t, $d> as DilationMethod>::Dilated;
-                            assert_eq!(DilatedInt::<Fixed<$t, $d>>(*a as DilatedT) - DilatedInt::<Fixed<$t, $d>>(*b as DilatedT), DilatedInt::<Fixed<$t, $d>>(*ans as DilatedT));
+                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT) - DilatedInt::<DilationMethodT>(*b as DilatedT), DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -439,18 +453,37 @@ mod tests {
                             (VALUES[$d][4], VALUES[$d][0], VALUES[$d][4]), // 4 -= 0 = 4
                             (VALUES[$d][4], VALUES[$d][1], VALUES[$d][3]), // 4 -= 1 = 3
                             (VALUES[$d][4], VALUES[$d][2], VALUES[$d][2]), // 4 -= 2 = 2
-                            (VALUES[$d][0], VALUES[$d][1], TestData::<Fixed<$t, $d>>::dilated_max() as u128), // 0 -= 1 = max
+                            (VALUES[$d][0], VALUES[$d][1], TestData::<DilationMethodT>::dilated_max() as u128), // 0 -= 1 = max
                         ];
 
                         // Some formats won't support arithmetic (for example u8 D8)
                         // So we have to filter to ensure they support all numbers involved with a particular test case
-                        let mask_u128 = TestData::<Fixed<$t, $d>>::dilated_max() as u128;
+                        let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            type DilatedT = <Fixed<$t, $d> as DilationMethod>::Dilated;
-                            let mut assigned = DilatedInt::<Fixed<$t, $d>>(*a as DilatedT);
-                            assigned -= DilatedInt::<Fixed<$t, $d>>(*b as DilatedT);
-                            assert_eq!(assigned, DilatedInt::<Fixed<$t, $d>>(*ans as DilatedT));
+                            let mut assigned = DilatedInt::<DilationMethodT>(*a as DilatedT);
+                            assigned -= DilatedInt::<DilationMethodT>(*b as DilatedT);
+                            assert_eq!(assigned, DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
+                    }
+
+                    #[test]
+                    fn add_one_is_correct() {
+                        for i in 0..10 {
+                            let value = VALUES[$d][i] as DilatedT & DilationMethodT::DILATED_MAX;
+                            let value_add_one = VALUES[$d][i + 1] as DilatedT & DilationMethodT::DILATED_MAX;
+                            assert_eq!(DilatedInt::<DilationMethodT>(value).add_one().0, value_add_one);
+                        }
+                        assert_eq!(DilatedInt::<DilationMethodT>(DilationMethodT::DILATED_MAX).add_one().0, 0);
+                    }
+
+                    #[test]
+                    fn sub_one_is_correct() {
+                        for i in 10..0 {
+                            let value = VALUES[$d][i] as DilatedT & DilationMethodT::DILATED_MAX;
+                            let value_sub_one = VALUES[$d][i - 1] as DilatedT & DilationMethodT::DILATED_MAX;
+                            assert_eq!(DilatedInt::<DilationMethodT>(value).sub_one().0, value_sub_one);
+                        }
+                        assert_eq!(DilatedInt::<DilationMethodT>(0).sub_one().0, DilationMethodT::DILATED_MAX);
                     }
                 }
             }

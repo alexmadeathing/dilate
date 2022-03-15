@@ -342,6 +342,22 @@ pub trait DilationMethod: Sized {
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DilatedInt<A>(pub A::Dilated) where A: DilationMethod;
 
+impl<DM> DilatedInt<DM>
+where
+    DM: DilationMethod,
+{
+    #[inline]
+    pub fn new(dilated: DM::Dilated) -> Self where DM::Dilated: Ord + BitAnd<Output = DM::Dilated> {
+        debug_assert!(dilated <= DM::DILATED_MASK, "Parameter 'dilated' exceeds maximum dilated mask (DilationMethod::DILATED_MASK)");
+        Self(dilated & DM::DILATED_MAX)
+    }
+
+    #[inline]
+    pub fn value(&self) -> DM::Dilated {
+        self.0
+    }
+}
+
 impl<A> fmt::Display for DilatedInt<A> where A: DilationMethod, A::Dilated: fmt::Display {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
