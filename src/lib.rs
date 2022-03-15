@@ -104,10 +104,10 @@
 //! 
 //! // Dilating
 //! let dilated = original.dilate_expand::<2>();
-//! assert_eq!(dilated.0, 0b1010001);
+//! assert_eq!(dilated.value(), 0b1010001);
 //! 
 //! // This is the actual dilated type
-//! assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
+//! assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>::new(0b1010001));
 //! 
 //! // Undilating
 //! assert_eq!(dilated.undilate(), original);
@@ -121,10 +121,10 @@
 //! 
 //! // Dilating
 //! let dilated = original.dilate_expand::<3>();
-//! assert_eq!(dilated.0, 0b1000001001);
+//! assert_eq!(dilated.value(), 0b1000001001);
 //! 
 //! // This is the actual dilated type
-//! assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
+//! assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>::new(0b1000001001));
 //! 
 //! // Undilating
 //! assert_eq!(dilated.undilate(), original);
@@ -249,6 +249,10 @@ pub trait DilationMethod: Sized {
     /// ```
     const DILATED_MASK: Self::Dilated;
 
+    // The value 0 as Dilated type - not needed by the user
+    #[doc(hidden)]
+    const DILATED_ZERO: Self::Dilated;
+
     // The value 1 as Dilated type - not needed by the user
     #[doc(hidden)]
     const DILATED_ONE: Self::Dilated;
@@ -264,11 +268,11 @@ pub trait DilationMethod: Sized {
     /// ```
     /// use dilate::*;
     /// 
-    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>(0b01010001));
-    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101).0, 0b01010001);
+    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>::new(0b01010001));
+    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101).value(), 0b01010001);
     /// 
-    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101), DilatedInt::<Fixed<u16, 3>>(0b001001000001));
-    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101).0, 0b001001000001);
+    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101), DilatedInt::<Fixed<u16, 3>>::new(0b001001000001));
+    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101).value(), 0b001001000001);
     /// ```
     /// 
     /// See also [DilateExpand::dilate_expand()], [DilateFixed::dilate_fixed()]
@@ -320,8 +324,8 @@ pub trait DilationMethod: Sized {
 /// let original: u8 = 0b1101;
 /// 
 /// let dilated = original.dilate_expand::<2>();
-/// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>(0b1010001));
-/// assert_eq!(dilated.0, 0b1010001);
+/// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>::new(0b1010001));
+/// assert_eq!(dilated.value(), 0b1010001);
 /// 
 /// assert_eq!(dilated.undilate(), original);
 /// ```
@@ -333,14 +337,40 @@ pub trait DilationMethod: Sized {
 /// let original: u8 = 0b1011;
 /// 
 /// let dilated = original.dilate_expand::<3>();
-/// assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>(0b1000001001));
-/// assert_eq!(dilated.0, 0b1000001001);
+/// assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>::new(0b1000001001));
+/// assert_eq!(dilated.value(), 0b1000001001);
 /// 
 /// assert_eq!(dilated.undilate(), original);
 /// ```
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DilatedInt<A>(pub A::Dilated) where A: DilationMethod;
+pub struct DilatedInt<A>(A::Dilated) where A: DilationMethod;
+
+impl<DM> DilatedInt<DM>
+where
+    DM: DilationMethod,
+{
+    /// Create new dilated int from known dilated value
+    /// 
+    /// This function creates a new [DilatedInt]. The parameter 'dilated'
+    /// should be a valid pre-dilated integer containing bits set only in
+    /// positions indicated by [DilationMethod::DILATED_MAX]. This ensures
+    /// validity for the various encoding and arithmetic methods.
+    /// 
+    /// # Panics
+    /// * Panics if parameter 'dilated' contains bits outside expected positions indicated by [DilationMethod::DILATED_MASK]
+    #[inline]
+    pub fn new(dilated: DM::Dilated) -> Self where DM::Dilated: Eq + Not<Output = DM::Dilated> + BitAnd<Output = DM::Dilated> {
+        debug_assert!(dilated & !DM::DILATED_MAX == DM::DILATED_ZERO, "Parameter 'dilated' contains bits outside expected positions indicated by DilationMethod::DILATED_MAX");
+        Self(dilated)
+    }
+
+    /// Access dilated value
+    #[inline]
+    pub fn value(&self) -> DM::Dilated {
+        self.0
+    }
+}
 
 impl<A> fmt::Display for DilatedInt<A> where A: DilationMethod, A::Dilated: fmt::Display {
     #[inline]
