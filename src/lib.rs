@@ -569,11 +569,13 @@ where
     }
 }
 
-#[cfg(std)]
+#[cfg(feature = "std")]
 pub use std_impls::*;
 
-#[cfg(std)]
+#[cfg(feature = "std")]
 mod std_impls {
+    extern crate std;
+
     use super::{DilatedInt, DilationMethod};
     use std::{
         fmt,
