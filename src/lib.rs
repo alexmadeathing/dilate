@@ -38,15 +38,16 @@
 // * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
 // * [2] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
 // * [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
-// 
+//
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
+#![cfg_attr(feature = "no_std", no_std)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_doc_code_examples)]
 #![deny(rustdoc::invalid_rust_codeblocks)]
 
 //! A compact, high performance integer dilation library for Rust.
-//! 
+//!
 //! Integer dilation is the process of converting cartesian indices (eg.
 //! coordinates) into a format suitable for use in D-dimensional algorithms
 //! such [Morton Order](https://en.wikipedia.org/wiki/Z-order_curve) curves.
@@ -55,77 +56,77 @@
 //! original bit sequence becomes evenly padded. For example:
 //! * `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
 //! * `0b1011` D3-dilated becomes `0b1000001001`
-//! 
+//!
 //! The process of undilation, or 'contraction', does the opposite:
 //! * `0b1010001` D2-undilated becomes `0b1101`
 //! * `0b1000001001` D3-undilated becomes `0b1011`
-//! 
+//!
 //! This libary also supports a limited subset of arthimetic operations on
 //! dilated integers via the standard rust operater traits. Whilst slightly
 //! more involved than regular integer arithmetic, these operations are still
 //! highly performant.
-//! 
+//!
 //! # Which Dilation Method to Choose
 //! There are currently two distinct ways to dilate integers; Expanding or
 //! Fixed. To help decide which is right for your application, consider the
 //! following:
-//! 
+//!
 //! Use [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) when
 //! you want all bits of the source integer to be dilated and you don't mind
 //! how the dilated integer is stored behind the scenes. This is the most
 //! intuitive method of interacting with dilated integers.
-//! 
+//!
 //! Use [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) when you
 //! want control over the storage type and want to maximise the number of bits
 //! occupied within that storage type.
-//! 
+//!
 //! Notice that the difference between the two is that of focus;
 //! [dilate_expand()](crate::expand::DilateExpand::dilate_expand()) focusses on
 //! maximising the usage of the source integer, whereas
 //! [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed()) focusses on
 //! maximising the usage of the dilated integer.
-//! 
+//!
 //! You may also use the raw [Expand](crate::expand::Expand) and
 //! [Fixed](crate::fixed::Fixed) [DilationMethod](crate::DilationMethod)
 //! implementations directly, though they tend to be more verbose.
-//! 
+//!
 //! # Supported Dilations
 //! For more information on the supported dilations and possible type
 //! combinations, please see
 //! [Supported Expand Dilations](crate::expand::DilateExpand#supported-expand-dilations)
 //! and
 //! [Supported Fixed Dilations](crate::fixed::DilateFixed#supported-fixed-dilations).
-//! 
+//!
 //! # Examples
 //! ```
 //! use dilate::*;
-//! 
+//!
 //! let original: u8 = 0b1101;
-//! 
+//!
 //! // Dilating
 //! let dilated = original.dilate_expand::<2>();
 //! assert_eq!(dilated.value(), 0b1010001);
-//! 
+//!
 //! // This is the actual dilated type
 //! assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>::new(0b1010001));
-//! 
+//!
 //! // Undilating
 //! assert_eq!(dilated.undilate(), original);
 //! ```
 //! *Example 2-dilation and undilation usage*
-//! 
+//!
 //! ```
 //! use dilate::*;
-//! 
+//!
 //! let original: u8 = 0b1011;
-//! 
+//!
 //! // Dilating
 //! let dilated = original.dilate_expand::<3>();
 //! assert_eq!(dilated.value(), 0b1000001001);
-//! 
+//!
 //! // This is the actual dilated type
 //! assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>::new(0b1000001001));
-//! 
+//!
 //! // Undilating
 //! assert_eq!(dilated.undilate(), original);
 //! ```
@@ -135,42 +136,40 @@ mod internal;
 
 /// Contains the Expand dilation method and all supporting items
 pub mod expand;
-pub use crate::expand::{Expand, DilateExpand};
+use internal::NumTraits;
+
+pub use crate::expand::{DilateExpand, Expand};
 
 /// Contains the Fixed dilation method and all supporting items
 pub mod fixed;
-pub use crate::fixed::{Fixed, DilateFixed};
-
-use std::{fmt, ops::{Add, Not, BitAnd, AddAssign, Sub, SubAssign}, num::Wrapping};
+pub use crate::fixed::{DilateFixed, Fixed};
 
 /// Denotes an integer type supported by the various dilation and undilation methods
 pub trait DilatableType:
     Default +
     Copy +
     Eq +
-    Not<Output = Self> +
-    BitAnd<Output = Self> +
     internal::DilateExplicit +
     internal::UndilateExplicit
 {
 }
-impl DilatableType for u8 { }
-impl DilatableType for u16 { }
-impl DilatableType for u32 { }
-impl DilatableType for u64 { }
-impl DilatableType for u128 { }
-impl DilatableType for usize { }
+impl DilatableType for u8 {}
+impl DilatableType for u16 {}
+impl DilatableType for u32 {}
+impl DilatableType for u64 {}
+impl DilatableType for u128 {}
+impl DilatableType for usize {}
 
 /// Allows for custom decoupled dilation behaviours
-/// 
+///
 /// An implementation of DilationMethod describes the manner in which dilation
 /// occurs, including the dilated and undilated types involved, wrapper methods
 /// to forward to the appropriate dilation functions, and some useful constants.
-/// 
+///
 /// It is possible to construct your own dilation methods by implementing the
 /// [DilationMethod] trait and optionally constructing your own value relative
 /// dilation trait similar to [DilateExpand](expand::DilateExpand).
-pub trait DilationMethod: Sized {
+pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// The external undilated integer type
     type Undilated: DilatableType;
 
@@ -182,367 +181,480 @@ pub trait DilationMethod: Sized {
 
     /// The number of bits in the [DilationMethod::Undilated] type which
     /// may be dilated into [DilationMethod::Dilated]
-    /// 
+    ///
     /// It may be smaller than the number of bits in
     /// [DilationMethod::Undilated] depending on the dilation method used.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// assert_eq!(Expand::<u8, 2>::UNDILATED_BITS, 8);
     /// assert_eq!(Fixed::<u16, 2>::UNDILATED_BITS, 8);
     /// ```
     const UNDILATED_BITS: usize;
 
     /// The maximum undilated value which may be dilated by this dilation method
-    /// 
+    ///
     /// This value holds a set of N consecutive 1 bits, where N is equal to
     /// [DilationMethod::UNDILATED_BITS].
-    /// 
+    ///
     /// It may be smaller than the maximum value of
     /// [DilationMethod::Undilated] depending on the dilation method used.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// assert_eq!(Expand::<u8, 2>::UNDILATED_MAX, 255);
     /// assert_eq!(Fixed::<u16, 2>::UNDILATED_MAX, 255);
     /// ```
     const UNDILATED_MAX: Self::Undilated;
 
     /// The number of maximally dilated bits occupied in [DilationMethod::Dilated]
-    /// 
+    ///
     /// This constant describes how many bits of [DilationMethod::Dilated] are
     /// utilised, including the padding 0 bits.
-    /// 
+    ///
     /// It may be smaller than the maximum number of bits available in
     /// [DilationMethod::Dilated] depending on the dilation method used.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// assert_eq!(Expand::<u8, 2>::DILATED_BITS, 16);
     /// assert_eq!(Fixed::<u16, 3>::DILATED_BITS, 15);
     /// ```
     const DILATED_BITS: usize;
 
     /// The maximum dilated value that can be stored in [DilationMethod::Dilated]
-    /// 
+    ///
     /// This constant holds a set of N dilated 1 bits, each separated by a
     /// number of padding 0 bits, where N is equal to [DilationMethod::UNDILATED_BITS]
     /// and the number of padding 0 bits depends on the dilation method used.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// assert_eq!(Expand::<u8, 2>::DILATED_MAX, 0b0101010101010101);
     /// assert_eq!(Fixed::<u16, 3>::DILATED_MAX, 0b0001001001001001);
     /// ```
     const DILATED_MAX: Self::Dilated;
 
     /// A mask of all dilated bits, including 0 bits
-    /// 
+    ///
     /// This constant holds a set of consecutive N 1 bits, where N is equal to
     /// [DilationMethod::DILATED_BITS].
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// assert_eq!(Expand::<u8, 3>::DILATED_MASK, 0xffffff);
     /// assert_eq!(Fixed::<u16, 3>::DILATED_MASK, 0x7FFF);
     /// ```
     const DILATED_MASK: Self::Dilated;
 
-    // The value 0 as Dilated type - not needed by the user
-    #[doc(hidden)]
-    const DILATED_ZERO: Self::Dilated;
-
-    // The value 1 as Dilated type - not needed by the user
-    #[doc(hidden)]
-    const DILATED_ONE: Self::Dilated;
-
     /// This function carries out the dilation process, converting the
     /// [DilationMethod::Undilated] value to a [DilatedInt].
-    /// 
+    ///
     /// This function is exposed as a secondary interface and you may prefer
     /// the more human friendly trait methods: [DilateExpand::dilate_expand()]
     /// and [DilateFixed::dilate_fixed()].
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>::new(0b01010001));
     /// assert_eq!(Expand::<u8, 2>::dilate(0b1101).value(), 0b01010001);
-    /// 
+    ///
     /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101), DilatedInt::<Fixed<u16, 3>>::new(0b001001000001));
     /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101).value(), 0b001001000001);
     /// ```
-    /// 
+    ///
     /// See also [DilateExpand::dilate_expand()], [DilateFixed::dilate_fixed()]
-    fn dilate(value: Self::Undilated) -> DilatedInt::<Self>;
+    fn dilate(value: Self::Undilated) -> DilatedInt<Self>;
 
     /// This function carries out the undilation process, converting a
     /// [DilatedInt] back to an [DilationMethod::Undilated] value.
-    /// 
+    ///
     /// This function is exposed as a secondary interface and you may prefer
-    /// the more human friendly trait method: [Undilate::undilate()].
-    /// 
+    /// the more human friendly method: [DilatedInt::undilate()].
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// let dilated = Expand::<u8, 2>::dilate(0b1101);
     /// assert_eq!(Expand::<u8, 2>::undilate(dilated), 0b1101);
-    /// 
+    ///
     /// let dilated = Fixed::<u16, 3>::dilate(0b1101);
     /// assert_eq!(Fixed::<u16, 3>::undilate(dilated), 0b1101);
     /// ```
-    /// 
-    /// See also [Undilate::undilate()]
-    fn undilate(value: DilatedInt::<Self>) -> Self::Undilated;
+    ///
+    /// See also [DilatedInt::undilate()]
+    fn undilate(value: DilatedInt<Self>) -> Self::Undilated;
 }
 
 /// A storage type holding and identifying dilated integers
-/// 
+///
 /// DilatedInt holds a dilated integer and allows for specialised dilated
 /// arithmetic methods.
-/// 
+///
 /// To dilate a regular integer and yield a DilatedInt, use the
 /// [DilateExpand::dilate_expand()] or [DilateFixed::dilate_fixed()]
 /// trait methods. These traits are implemented for all [DilatableType]
 /// integers.
-/// 
-/// The stored dilated value may be obtained using the tuple field `.0`.
-/// 
+///
+/// The stored dilated value may be obtained using the [DilatedInt::value()] method.
+///
 /// To undilate from a DilatedInt and yield a regular integer, use the
-/// [Undilate::undilate()] trait method. This trait is implemented for
+/// [DilatedInt::undilate()] method. This trait is implemented for
 /// all DilatedInt types.
-/// 
+///
 /// # Examples
-/// 
+///
 /// Example 2-Dilation Usage:
 /// ```
 /// use dilate::*;
-/// 
+///
 /// let original: u8 = 0b1101;
-/// 
+///
 /// let dilated = original.dilate_expand::<2>();
 /// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>::new(0b1010001));
 /// assert_eq!(dilated.value(), 0b1010001);
-/// 
+///
 /// assert_eq!(dilated.undilate(), original);
 /// ```
-/// 
+///
 /// Example 3-Dilation Usage:
 /// ```
 /// use dilate::*;
-/// 
+///
 /// let original: u8 = 0b1011;
-/// 
+///
 /// let dilated = original.dilate_expand::<3>();
 /// assert_eq!(dilated, DilatedInt::<Expand<u8, 3>>::new(0b1000001001));
 /// assert_eq!(dilated.value(), 0b1000001001);
-/// 
+///
 /// assert_eq!(dilated.undilate(), original);
 /// ```
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DilatedInt<DM>(DM::Dilated) where DM: DilationMethod;
+pub struct DilatedInt<DM>(DM::Dilated)
+where
+    DM: DilationMethod;
 
 impl<DM> DilatedInt<DM>
 where
     DM: DilationMethod,
 {
     /// Create new dilated int from known dilated value
-    /// 
+    ///
     /// This function creates a new [DilatedInt]. The parameter 'dilated'
     /// should be a valid pre-dilated integer containing bits set only in
     /// positions indicated by [DilationMethod::DILATED_MAX]. This ensures
     /// validity for the various encoding and arithmetic methods.
-    /// 
+    ///
     /// # Panics
     /// * Panics if parameter 'dilated' contains bits outside expected positions indicated by [DilationMethod::DILATED_MASK]
     #[inline]
     pub fn new(dilated: DM::Dilated) -> Self {
-        debug_assert!(dilated & !DM::DILATED_MAX == DM::DILATED_ZERO, "Parameter 'dilated' contains bits outside expected positions indicated by DilationMethod::DILATED_MAX");
+        debug_assert!(dilated.bit_and(DM::DILATED_MAX.bit_not()) == DM::Dilated::zero(), "Parameter 'dilated' contains bits outside expected positions indicated by DilationMethod::DILATED_MAX");
         Self(dilated)
     }
 
     /// Access dilated value
     #[inline]
+    #[must_use]
     pub fn value(&self) -> DM::Dilated {
         self.0
     }
-}
-
-impl<DM> fmt::Display for DilatedInt<DM> where DM: DilationMethod, DM::Dilated: fmt::Display {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// Universal undilation trait
-/// 
-/// The Undilation trait provides a straightforward and intuitive method to
-/// undilate any dilated integer.
-/// 
-/// The Undilation trait is implemented for any type of [DilatedInt].
-pub trait Undilate {
-    /// Output type of undilation process - should be same as [DilationMethod::Undilated]
-    type Undilated;
 
     /// This method carries out the undilation process, converting a
     /// [DilatedInt] back to a regular undilated integer value.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// let dilated = 0b1101u8.dilate_expand::<2>();
     /// assert_eq!(dilated.undilate(), 0b1101);
-    /// 
+    ///
     /// let dilated = 0b1101u16.dilate_expand::<3>();
     /// assert_eq!(dilated.undilate(), 0b1101);
     /// ```
-    /// 
+    ///
     /// See also [DilationMethod::undilate()]
-    fn undilate(self) -> Self::Undilated;
-}
-
-impl<DM> Undilate for DilatedInt<DM> where DM: DilationMethod {
-    type Undilated = DM::Undilated;
-
     #[inline]
-    fn undilate(self) -> Self::Undilated {
+    #[must_use]
+    pub fn undilate(self) -> DM::Undilated {
         DM::undilate(self)
     }
-}
 
-impl<DM> Add for DilatedInt<DM>
-where
-    DM: DilationMethod,
-    Wrapping<DM::Dilated>: Add<Output = Wrapping<DM::Dilated>>
-{
-    type Output = Self;
-
-    #[inline]
-    fn add(self, rhs: Self) -> Self::Output {
-        Self((Wrapping(self.0) + Wrapping(!DM::DILATED_MAX) + Wrapping(rhs.0)).0 & DM::DILATED_MAX)
-    }
-}
-
-impl<DM> AddAssign for DilatedInt<DM>
-where
-    DM: DilationMethod,
-    Wrapping<DM::Dilated>: Add<Output = Wrapping<DM::Dilated>>
-{
-    #[inline]
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 = (Wrapping(self.0) + Wrapping(!DM::DILATED_MAX) + Wrapping(rhs.0)).0 & DM::DILATED_MAX;
-    }
-}
-
-impl<DM> Sub for DilatedInt<DM>
-where
-    DM: DilationMethod,
-    Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
-{
-    type Output = Self;
-
-    #[inline]
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self((Wrapping(self.0) - Wrapping(rhs.0)).0 & DM::DILATED_MAX)
-    }
-}
-
-impl<DM> SubAssign for DilatedInt<DM>
-where
-    DM: DilationMethod,
-    Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
-{
-    #[inline]
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 = (Wrapping(self.0) - Wrapping(rhs.0)).0 & DM::DILATED_MAX;
-    }
-}
-
-/// An arithmetic trait which allows explicit addition with the value one
-pub trait AddOne {
     /// Adds the value 1 to the dilated int and returns the result
-    /// 
+    ///
     /// This method is slightly more optimal than adding 1 via the '+' operator
-    /// 
+    ///
     /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use dilate::*;
-    /// 
+    ///
     /// assert_eq!(0u8.dilate_expand::<3>().add_one().undilate(), 1);
     /// assert_eq!(127u8.dilate_expand::<3>().add_one().undilate(), 128);
     /// assert_eq!(255u8.dilate_expand::<3>().add_one().undilate(), 0);
     /// ```
+    #[inline]
     #[must_use]
-    fn add_one(self) -> Self;
-}
-
-impl<DM> AddOne for DilatedInt<DM>
-where
-    DM: DilationMethod,
-    Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
-{
-    fn add_one(self) -> Self {
-        Self((Wrapping(self.0) - Wrapping(DM::DILATED_MAX)).0 & DM::DILATED_MAX)
+    pub fn add_one(self) -> Self {
+        Self(
+            self.0
+                .sub_wrapping(DM::DILATED_MAX)
+                .bit_and(DM::DILATED_MAX),
+        )
     }
-}
 
-/// An arithmetic trait which allows explicit subtraction with the value one
-pub trait SubOne {
     /// Subtracts the value 1 from the dilated int and returns the result
-    /// 
+    ///
     /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
+    ///
+    /// # Examples
+    /// ```
+    /// use dilate::*;
+    ///
+    /// assert_eq!(0u8.dilate_expand::<3>().sub_one().undilate(), 255);
+    /// assert_eq!(127u8.dilate_expand::<3>().sub_one().undilate(), 126);
+    /// assert_eq!(255u8.dilate_expand::<3>().sub_one().undilate(), 254);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn sub_one(self) -> Self {
+        Self(
+            self.0
+                .sub_wrapping(DM::Dilated::one())
+                .bit_and(DM::DILATED_MAX),
+        )
+    }
+
+    /// Adds two dilated integers and returns the resultant dilated integer
+    /// 
+    /// # Wrapping
+    /// The arithmetic is implemented in a way which enforces wrapping, so if
+    /// the result of the operation would overflow, the resultant value is
+    /// wrapped at the limits instead - this is somewhat contrary to the Rust
+    /// default of panicking on overflow.
+    /// 
+    /// # no_std
+    /// When the feature no_std is *not* used, you may also use the `+`
+    /// operator to perform this operation.
     /// 
     /// # Examples
     /// ```
     /// use dilate::*;
     /// 
-    /// assert_eq!(0u8.dilate_expand::<3>().sub_one().undilate(), 255);
-    /// assert_eq!(127u8.dilate_expand::<3>().sub_one().undilate(), 126);
-    /// assert_eq!(255u8.dilate_expand::<3>().sub_one().undilate(), 254);
+    /// let value_a: u16 = 123;
+    /// let value_b: u16 = 456;
+    /// 
+    /// let dilated_a = value_a.dilate_expand::<3>();
+    /// let dilated_b = value_b.dilate_expand::<3>();
+    /// 
+    /// assert_eq!(dilated_a.add(dilated_b).undilate(), value_a + value_b);
     /// ```
+    #[inline]
     #[must_use]
-    fn sub_one(self) -> Self;
+    pub fn add(self, rhs: Self) -> Self {
+        Self(
+            self.0
+                .add_wrapping(DM::DILATED_MAX.bit_not())
+                .add_wrapping(rhs.0)
+                .bit_and(DM::DILATED_MAX),
+        )
+    }
+
+    /// Adds two dilated integers and assigns the result to the left operand
+    /// 
+    /// # Wrapping
+    /// The arithmetic is implemented in a way which enforces wrapping, so if
+    /// the result of the operation would overflow, the resultant value is
+    /// wrapped at the limits instead - this is somewhat contrary to the Rust
+    /// default of panicking on overflow.
+    /// 
+    /// # no_std
+    /// When the feature no_std is *not* used, you may also use the `+=`
+    /// operator to perform this operation.
+    /// 
+    /// # Examples
+    /// ```
+    /// use dilate::*;
+    /// 
+    /// let value_a: u16 = 123;
+    /// let value_b: u16 = 456;
+    /// 
+    /// let mut dilated_a = value_a.dilate_expand::<3>();
+    /// let dilated_b = value_b.dilate_expand::<3>();
+    /// 
+    /// dilated_a.add_assign(dilated_b);
+    /// 
+    /// assert_eq!(dilated_a.undilate(), value_a + value_b);
+    /// ```
+    #[inline]
+    pub fn add_assign(&mut self, rhs: Self) {
+        *self = self.add(rhs);
+    }
+
+    /// Subtracts two dilated integers and returns the resultant dilated integer
+    /// 
+    /// # Wrapping
+    /// The arithmetic is implemented in a way which enforces wrapping, so if
+    /// the result of the operation would overflow, the resultant value is
+    /// wrapped at the limits instead - this is somewhat contrary to the Rust
+    /// default of panicking on overflow.
+    /// 
+    /// # no_std
+    /// When the feature no_std is *not* used, you may also use the `-`
+    /// operator to perform this operation.
+    /// 
+    /// # Examples
+    /// ```
+    /// use dilate::*;
+    /// 
+    /// let value_a: u16 = 456;
+    /// let value_b: u16 = 123;
+    /// 
+    /// let dilated_a = value_a.dilate_expand::<3>();
+    /// let dilated_b = value_b.dilate_expand::<3>();
+    /// 
+    /// assert_eq!(dilated_a.sub(dilated_b).undilate(), value_a - value_b);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn sub(self, rhs: Self) -> Self {
+        Self(self.0.sub_wrapping(rhs.0).bit_and(DM::DILATED_MAX))
+    }
+
+    /// Subtracts two dilated integers and assigns the result to the left operand
+    /// 
+    /// # Wrapping
+    /// The arithmetic is implemented in a way which enforces wrapping, so if
+    /// the result of the operation would overflow, the resultant value is
+    /// wrapped at the limits instead - this is somewhat contrary to the Rust
+    /// default of panicking on overflow.
+    /// 
+    /// # no_std
+    /// When the feature no_std is *not* used, you may also use the `-=`
+    /// operator to perform this operation.
+    /// 
+    /// # Examples
+    /// ```
+    /// use dilate::*;
+    /// 
+    /// let value_a: u16 = 456;
+    /// let value_b: u16 = 123;
+    /// 
+    /// let mut dilated_a = value_a.dilate_expand::<3>();
+    /// let dilated_b = value_b.dilate_expand::<3>();
+    /// 
+    /// dilated_a.sub_assign(dilated_b);
+    /// 
+    /// assert_eq!(dilated_a.undilate(), value_a - value_b);
+    /// ```
+    #[inline]
+    pub fn sub_assign(&mut self, rhs: Self) {
+        *self = self.sub(rhs);
+    }
 }
 
-impl<DM> SubOne for DilatedInt<DM>
-where
-    DM: DilationMethod,
-    Wrapping<DM::Dilated>: Sub<Output = Wrapping<DM::Dilated>>
-{
-    fn sub_one(self) -> Self {
-        Self((Wrapping(self.0) - Wrapping(DM::DILATED_ONE)).0 & DM::DILATED_MAX)
+#[cfg(not(feature = "no_std"))]
+pub use std_impls::*;
+
+#[cfg(not(feature = "no_std"))]
+mod std_impls {
+    use super::{DilatedInt, DilationMethod};
+    use std::{
+        fmt,
+        ops::{Add, AddAssign, Sub, SubAssign},
+    };
+
+    impl<DM> fmt::Display for DilatedInt<DM>
+    where
+        DM: DilationMethod,
+        DM::Dilated: fmt::Display,
+    {
+        #[inline]
+        #[must_use]
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.value())
+        }
+    }
+
+    impl<DM> Add for DilatedInt<DM>
+    where
+        DM: DilationMethod,
+    {
+        type Output = Self;
+
+        #[inline]
+        #[must_use]
+        fn add(self, rhs: Self) -> Self::Output {
+            self.add(rhs)
+        }
+    }
+
+    impl<DM> AddAssign for DilatedInt<DM>
+    where
+        DM: DilationMethod,
+    {
+        #[inline]
+        fn add_assign(&mut self, rhs: Self) {
+            self.add_assign(rhs);
+        }
+    }
+
+    impl<DM> Sub for DilatedInt<DM>
+    where
+        DM: DilationMethod,
+    {
+        type Output = Self;
+
+        #[inline]
+        #[must_use]
+        fn sub(self, rhs: Self) -> Self::Output {
+            self.sub(rhs)
+        }
+    }
+
+    impl<DM> SubAssign for DilatedInt<DM>
+    where
+        DM: DilationMethod,
+    {
+        #[inline]
+        fn sub_assign(&mut self, rhs: Self) {
+            self.sub_assign(rhs);
+        }
     }
 }
 
 #[cfg(test)]
 pub(crate) mod shared_test_data {
+    extern crate std;
     use std::marker::PhantomData;
 
     use lazy_static::lazy_static;
 
     use super::DilationMethod;
 
-    pub struct TestData<T> where T: DilationMethod {
+    pub struct TestData<T>
+    where
+        T: DilationMethod,
+    {
         marker: PhantomData<T>,
     }
-    
+
     macro_rules! impl_test_data {
         ($method_t:ty, $dil_max:expr, $con_max:expr) => {
             impl TestData<$method_t> {
@@ -559,7 +671,8 @@ pub(crate) mod shared_test_data {
         };
     }
     pub(crate) use impl_test_data;
-    
+
+    // TODO move to a file
     // NOTE - The following test cases are shared between all types (up to D8)
     //        For undilated values, we simply cast to the target type (and mask with undilated_max() for the Fixed method)
     //        For dilated values, we cast to the target inner type and mask with dilated_max()
@@ -567,12 +680,12 @@ pub(crate) mod shared_test_data {
     //        Furthermore, every test case is xor'd with every other test case to
     //        perform more tests with fewer hand written values
     lazy_static! {
-        pub static ref DILATION_TEST_CASES: [Vec<(u128, u128)>; 9] = [
+        pub static ref DILATION_TEST_CASES: [std::vec::Vec<(u128, u128)>; 9] = [
             // D0 (not used)
-            Vec::new(),
+            std::vec::Vec::new(),
 
             // D1 (data should pass through unchanged)
-            vec![
+            std::vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
                 (0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff),
                 (0x0000000000000000ffffffffffffffff, 0x0000000000000000ffffffffffffffff),
@@ -585,7 +698,7 @@ pub(crate) mod shared_test_data {
             ],
 
             // D2
-            vec![
+            std::vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
                 (0xffffffffffffffffffffffffffffffff, 0x55555555555555555555555555555555),
                 (0x0000000000000000ffffffffffffffff, 0x55555555555555555555555555555555),
@@ -598,7 +711,7 @@ pub(crate) mod shared_test_data {
             ],
 
             // D3
-            vec![
+            std::vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
                 (0xffffffffffffffffffffffffffffffff, 0x09249249249249249249249249249249),
                 (0x0000000000000000ffffffffffffffff, 0x09249249249249249249249249249249),
@@ -611,7 +724,7 @@ pub(crate) mod shared_test_data {
             ],
 
             // D4
-            vec![
+            std::vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
                 (0xffffffffffffffffffffffffffffffff, 0x11111111111111111111111111111111),
                 (0x0000000000000000ffffffffffffffff, 0x11111111111111111111111111111111),
@@ -624,7 +737,7 @@ pub(crate) mod shared_test_data {
             ],
 
             // D5
-            vec![
+            std::vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
                 (0xffffffffffffffffffffffffffffffff, 0x01084210842108421084210842108421),
                 (0x0000000000000000ffffffffffffffff, 0x01084210842108421084210842108421),
@@ -637,7 +750,7 @@ pub(crate) mod shared_test_data {
             ],
 
             // D6
-            vec![
+            std::vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
                 (0xffffffffffffffffffffffffffffffff, 0x01041041041041041041041041041041),
                 (0x0000000000000000ffffffffffffffff, 0x01041041041041041041041041041041),
@@ -650,7 +763,7 @@ pub(crate) mod shared_test_data {
             ],
 
             // D7
-            vec![
+            std::vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
                 (0xffffffffffffffffffffffffffffffff, 0x00810204081020408102040810204081),
                 (0x0000000000000000ffffffffffffffff, 0x00810204081020408102040810204081),
@@ -663,7 +776,7 @@ pub(crate) mod shared_test_data {
             ],
 
             // D8
-            vec![
+            std::vec![
                 (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
                 (0xffffffffffffffffffffffffffffffff, 0x01010101010101010101010101010101),
                 (0x0000000000000000ffffffffffffffff, 0x01010101010101010101010101010101),
@@ -677,6 +790,7 @@ pub(crate) mod shared_test_data {
         ];
     }
 
+    // TODO move to a file
     // The first 32 values in each dimension (up to D8)
     // Used for testing arithmetic
     pub const VALUES: [[u128; 32]; 9] = [
