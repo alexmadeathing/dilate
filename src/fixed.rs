@@ -41,18 +41,16 @@
 //
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
-use std::marker::PhantomData;
-
-use crate::{internal, DilatableType, DilationMethod, DilatedInt};
+use crate::{internal, DilatableType, DilatedInt, DilationMethod};
 
 /// A DilationMethod implementation which provides fixed dilation meta information
-/// 
+///
 /// This trait implementation describes the types involved with a fixed type
 /// dilation as well as some useful constants and wrapper methods which
 /// actually perform the dilations.
-/// 
+///
 /// Although this trait implementation provides the functions for performing
-/// dilations, users should generally prefer to dilate via the [DilateExpand]
+/// dilations, users should generally prefer to dilate via the [DilateExpand](crate::expand::DilateExpand)
 /// trait and its [dilate_fixed()](DilateFixed::dilate_fixed()) method,
 /// which is generally less verbose and therefore more user friendly.
 ///
@@ -62,22 +60,24 @@ use crate::{internal, DilatableType, DilationMethod, DilatedInt};
 ///
 /// assert_eq!(Fixed::<u16, 2>::UNDILATED_MAX, 255);
 /// assert_eq!(Fixed::<u16, 2>::UNDILATED_BITS, 8);
-/// 
+///
 /// assert_eq!(Fixed::<u16, 2>::DILATED_MAX, 0b0101010101010101);
 /// assert_eq!(Fixed::<u16, 2>::DILATED_BITS, 16);
-/// 
+///
 /// let original: u16 = 0b1101;
 /// let dilated = Fixed::<u16, 2>::dilate(original);
 ///
 /// assert_eq!(dilated.value(), 0b01010001);
 /// assert_eq!(dilated, DilatedInt::<Fixed<u16, 2>>::new(0b01010001));
-/// 
+///
 /// assert_eq!(Fixed::<u16, 2>::undilate(dilated), original);
 /// ```
-/// 
+///
 /// For more detailed information, see [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed())
-#[derive(Debug, PartialEq, Eq)]
-pub struct Fixed<T, const D: usize>(PhantomData<T>) where T: DilatableType;
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct Fixed<T, const D: usize>(T) // Tuple member never used, but this saves us creating a no_std version of PhantomData
+where
+    T: DilatableType;
 
 macro_rules! impl_fixed {
     ($t:ty, $($d:literal),+) => {$(
@@ -90,17 +90,15 @@ macro_rules! impl_fixed {
             const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
             const DILATED_MAX: Self::Dilated = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
             const DILATED_MASK: Self::Dilated = Self::DILATED_MAX * ((1 << $d) - 1);
-            const DILATED_ZERO: Self::Dilated = 0;
-            const DILATED_ONE: Self::Dilated = 1;
 
             #[inline]
             fn dilate(value: Self::Undilated) -> DilatedInt<Self> {
-                DilatedInt::<Self>(internal::dilate::<Self::Dilated, $d>(value))
+                DilatedInt::<Self>(internal::dilate_implicit::<Self::Dilated, $d>(value))
             }
 
             #[inline]
             fn undilate(value: DilatedInt<Self>) -> Self::Undilated {
-                internal::undilate::<Self::Dilated, $d>(value.0)
+                internal::undilate_implicit::<Self::Dilated, $d>(value.0)
             }
         }
     )+}
@@ -130,7 +128,7 @@ pub trait DilateFixed: DilatableType {
     /// The number of dilatable bits is known ahead of time and can be retrieved
     /// using the [Fixed::UNDILATED_BITS](crate::DilationMethod::UNDILATED_BITS)
     /// constant.
-    /// 
+    ///
     /// # Panics
     /// When using the fixed method, attempting to dilate a value that
     /// would not fit into the same type will yield a panic. You may use
@@ -145,7 +143,7 @@ pub trait DilateFixed: DilatableType {
     ///
     /// assert_eq!(value.dilate_fixed::<2>(), DilatedInt::<Fixed<u16, 2>>::new(0b01010001));
     /// assert_eq!(value.dilate_fixed::<2>().value(), 0b01010001);
-    /// 
+    ///
     /// // Panics with large values
     /// assert!(std::panic::catch_unwind(|| 0xffffu16.dilate_fixed::<2>()).is_err());
     /// ```
@@ -197,20 +195,27 @@ pub trait DilateFixed: DilatableType {
     ///
     /// See also [Fixed<T, D>::dilate()](crate::DilationMethod::dilate())
     #[inline]
-    fn dilate_fixed<const D: usize>(self) -> DilatedInt<Fixed<Self, D>> where Fixed::<Self, D>: DilationMethod<Undilated = Self> {
+    fn dilate_fixed<const D: usize>(self) -> DilatedInt<Fixed<Self, D>>
+    where
+        Fixed<Self, D>: DilationMethod<Undilated = Self>,
+    {
         Fixed::<Self, D>::dilate(self)
     }
 }
 
-impl<T> DilateFixed for T where T: DilatableType { }
+impl<T> DilateFixed for T where T: DilatableType {}
 
 #[cfg(test)]
 mod tests {
     use paste::paste;
 
-    use crate::{DilationMethod, shared_test_data::{TestData, impl_test_data}};
     use super::Fixed;
+    use crate::{
+        shared_test_data::{impl_test_data, TestData},
+        DilationMethod,
+    };
 
+    // TODO move to a file
     impl_test_data!(Fixed<u8, 01>, 0xff, 0xff);
     impl_test_data!(Fixed<u8, 02>, 0x55, 0x0f);
     impl_test_data!(Fixed<u8, 03>, 0x09, 0x03);
@@ -268,8 +273,10 @@ mod tests {
         ($t:ty, $($d:literal),+) => {$(
             paste! {
                 mod [< fixed_ $t _d $d >] {
+                    extern crate std;
+
                     use crate::shared_test_data::{TestData, VALUES, DILATION_TEST_CASES};
-                    use crate::{DilationMethod, DilatedInt, Undilate, AddOne, SubOne};
+                    use crate::{DilationMethod, DilatedInt};
                     use super::super::{Fixed, DilateFixed};
 
                     type DilationMethodT = Fixed<$t, $d>;
@@ -388,7 +395,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT) + DilatedInt::<DilationMethodT>(*b as DilatedT), DilatedInt::<DilationMethodT>(*ans as DilatedT));
+                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT).add(DilatedInt::<DilationMethodT>(*b as DilatedT)), DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -412,7 +419,7 @@ mod tests {
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
                             let mut assigned = DilatedInt::<DilationMethodT>(*a as DilatedT);
-                            assigned += DilatedInt::<DilationMethodT>(*b as DilatedT);
+                            assigned.add_assign(DilatedInt::<DilationMethodT>(*b as DilatedT));
                             assert_eq!(assigned, DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
@@ -436,7 +443,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT) - DilatedInt::<DilationMethodT>(*b as DilatedT), DilatedInt::<DilationMethodT>(*ans as DilatedT));
+                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT).sub(DilatedInt::<DilationMethodT>(*b as DilatedT)), DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -460,7 +467,7 @@ mod tests {
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
                             let mut assigned = DilatedInt::<DilationMethodT>(*a as DilatedT);
-                            assigned -= DilatedInt::<DilationMethodT>(*b as DilatedT);
+                            assigned.sub_assign(DilatedInt::<DilationMethodT>(*b as DilatedT));
                             assert_eq!(assigned, DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }

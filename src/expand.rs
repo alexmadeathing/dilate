@@ -41,16 +41,14 @@
 //
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
-use std::marker::PhantomData;
-
-use crate::{internal, DilatableType, DilationMethod, DilatedInt};
+use crate::{internal, DilatableType, DilatedInt, DilationMethod};
 
 /// A DilationMethod implementation which provides expanding dilation meta information
-/// 
+///
 /// This trait implementation describes the types involved with an expanding
 /// dilation as well as some useful constants and wrapper methods which
 /// actually perform the dilations.
-/// 
+///
 /// Although this trait implementation provides the functions for performing
 /// dilations, users should generally prefer to dilate via the [DilateExpand]
 /// trait and its [dilate_expand()](DilateExpand::dilate_expand()) method,
@@ -62,22 +60,24 @@ use crate::{internal, DilatableType, DilationMethod, DilatedInt};
 ///
 /// assert_eq!(Expand::<u8, 2>::UNDILATED_MAX, 255);
 /// assert_eq!(Expand::<u8, 2>::UNDILATED_BITS, 8);
-/// 
+///
 /// assert_eq!(Expand::<u8, 2>::DILATED_MAX, 0b0101010101010101);
 /// assert_eq!(Expand::<u8, 2>::DILATED_BITS, 16);
-/// 
+///
 /// let original: u8 = 0b1101;
 /// let dilated = Expand::<u8, 2>::dilate(original);
 ///
 /// assert_eq!(dilated.value(), 0b01010001);
 /// assert_eq!(dilated, DilatedInt::<Expand<u8, 2>>::new(0b01010001));
-/// 
+///
 /// assert_eq!(Expand::<u8, 2>::undilate(dilated), original);
 /// ```
-/// 
+///
 /// For more detailed information, see [dilate_expand()](crate::expand::DilateExpand::dilate_expand())
-#[derive(Debug, PartialEq, Eq)]
-pub struct Expand<T, const D: usize>(PhantomData<T>) where T: DilatableType;
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct Expand<T, const D: usize>(T) // Tuple member never used, but this saves us creating a no_std version of PhantomData
+where
+    T: DilatableType;
 
 macro_rules! impl_expand {
     ($undilated:ty, $(($d:literal, $dilated:ty)),+) => {$(
@@ -90,17 +90,15 @@ macro_rules! impl_expand {
             const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
             const DILATED_MAX: Self::Dilated = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
             const DILATED_MASK: Self::Dilated = Self::DILATED_MAX * ((1 << $d) - 1);
-            const DILATED_ZERO: Self::Dilated = 0;
-            const DILATED_ONE: Self::Dilated = 1;
 
             #[inline]
             fn dilate(value: Self::Undilated) -> DilatedInt<Self> {
-                DilatedInt::<Self>(internal::dilate::<Self::Dilated, $d>(value as Self::Dilated))
+                DilatedInt::<Self>(internal::dilate_implicit::<Self::Dilated, $d>(value as Self::Dilated))
             }
 
             #[inline]
             fn undilate(value: DilatedInt<Self>) -> Self::Undilated {
-                internal::undilate::<Self::Dilated, $d>(value.0) as Self::Undilated
+                internal::undilate_implicit::<Self::Dilated, $d>(value.0) as Self::Undilated
             }
         }
     )+}
@@ -189,20 +187,27 @@ pub trait DilateExpand: DilatableType {
     ///
     /// See also [Expand<T, D>::dilate()](crate::DilationMethod::dilate())
     #[inline]
-    fn dilate_expand<const D: usize>(self) -> DilatedInt<Expand<Self, D>> where Expand::<Self, D>: DilationMethod<Undilated = Self> {
+    fn dilate_expand<const D: usize>(self) -> DilatedInt<Expand<Self, D>>
+    where
+        Expand<Self, D>: DilationMethod<Undilated = Self>,
+    {
         Expand::<Self, D>::dilate(self)
     }
 }
 
-impl<T> DilateExpand for T where T: DilatableType { }
+impl<T> DilateExpand for T where T: DilatableType {}
 
 #[cfg(test)]
 mod tests {
     use paste::paste;
 
-    use crate::{DilationMethod, shared_test_data::{TestData, impl_test_data}};
     use super::Expand;
+    use crate::{
+        shared_test_data::{impl_test_data, TestData},
+        DilationMethod,
+    };
 
+    // TODO move to a file
     impl_test_data!(Expand<u8, 01>, 0xff, u8::MAX);
     impl_test_data!(Expand<u8, 02>, 0x5555, u8::MAX);
     impl_test_data!(Expand<u8, 03>, 0x00249249, u8::MAX);
@@ -212,14 +217,14 @@ mod tests {
     impl_test_data!(Expand<u8, 07>, 0x0002040810204081, u8::MAX);
     impl_test_data!(Expand<u8, 08>, 0x0101010101010101, u8::MAX);
     // If testing up to 16 dimensions, these can be uncommented
-//    impl_test_data!(Expand<u8, 09>, 0x00000000000000008040201008040201, u8::MAX);
-//    impl_test_data!(Expand<u8, 10>, 0x00000000000000401004010040100401, u8::MAX);
-//    impl_test_data!(Expand<u8, 11>, 0x00000000000020040080100200400801, u8::MAX);
-//    impl_test_data!(Expand<u8, 12>, 0x00000000001001001001001001001001, u8::MAX);
-//    impl_test_data!(Expand<u8, 13>, 0x00000000080040020010008004002001, u8::MAX);
-//    impl_test_data!(Expand<u8, 14>, 0x00000004001000400100040010004001, u8::MAX);
-//    impl_test_data!(Expand<u8, 15>, 0x00000200040008001000200040008001, u8::MAX);
-//    impl_test_data!(Expand<u8, 16>, 0x00010001000100010001000100010001, u8::MAX);
+    //    impl_test_data!(Expand<u8, 09>, 0x00000000000000008040201008040201, u8::MAX);
+    //    impl_test_data!(Expand<u8, 10>, 0x00000000000000401004010040100401, u8::MAX);
+    //    impl_test_data!(Expand<u8, 11>, 0x00000000000020040080100200400801, u8::MAX);
+    //    impl_test_data!(Expand<u8, 12>, 0x00000000001001001001001001001001, u8::MAX);
+    //    impl_test_data!(Expand<u8, 13>, 0x00000000080040020010008004002001, u8::MAX);
+    //    impl_test_data!(Expand<u8, 14>, 0x00000004001000400100040010004001, u8::MAX);
+    //    impl_test_data!(Expand<u8, 15>, 0x00000200040008001000200040008001, u8::MAX);
+    //    impl_test_data!(Expand<u8, 16>, 0x00010001000100010001000100010001, u8::MAX);
 
     impl_test_data!(Expand<u16, 1>, 0xffff, u16::MAX);
     impl_test_data!(Expand<u16, 2>, 0x55555555, u16::MAX);
@@ -256,8 +261,10 @@ mod tests {
         ($t:ty, $($d:literal),+) => {$(
             paste! {
                 mod [< expand_ $t _d $d >] {
+                    extern crate std;
+
                     use crate::shared_test_data::{TestData, VALUES, DILATION_TEST_CASES};
-                    use crate::{DilationMethod, DilatedInt, Undilate, AddOne, SubOne};
+                    use crate::{DilationMethod, DilatedInt};
                     use super::super::{Expand, DilateExpand};
 
                     type DilationMethodT = Expand<$t, $d>;
@@ -350,7 +357,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT) + DilatedInt::<DilationMethodT>(*b as DilatedT), DilatedInt::<DilationMethodT>(*ans as DilatedT));
+                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT).add(DilatedInt::<DilationMethodT>(*b as DilatedT)), DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -374,7 +381,7 @@ mod tests {
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
                             let mut assigned = DilatedInt::<DilationMethodT>(*a as DilatedT);
-                            assigned += DilatedInt::<DilationMethodT>(*b as DilatedT);
+                            assigned.add_assign(DilatedInt::<DilationMethodT>(*b as DilatedT));
                             assert_eq!(assigned, DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
@@ -398,7 +405,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT) - DilatedInt::<DilationMethodT>(*b as DilatedT), DilatedInt::<DilationMethodT>(*ans as DilatedT));
+                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT).sub(DilatedInt::<DilationMethodT>(*b as DilatedT)), DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -422,7 +429,7 @@ mod tests {
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
                             let mut assigned = DilatedInt::<DilationMethodT>(*a as DilatedT);
-                            assigned -= DilatedInt::<DilationMethodT>(*b as DilatedT);
+                            assigned.sub_assign(DilatedInt::<DilationMethodT>(*b as DilatedT));
                             assert_eq!(assigned, DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }

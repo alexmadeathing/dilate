@@ -1,31 +1,31 @@
 // ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
-// 
+//
 // Copyright © 2022 Alex Blunt (alexmadeathing)
-// 
+//
 // This is anti-capitalist software, released for free use by individuals and
 // organizations that do not operate by capitalist principles.
-// 
+//
 // Permission is hereby granted, free of charge, to any person or organization
 // (the "User") obtaining a copy of this software and associated documentation
 // files (the "Software"), to use, copy, modify, merge, distribute, and/or sell
-// copies of the Software, subject to the following conditions: 
+// copies of the Software, subject to the following conditions:
 //
 // 1. The above copyright notice and this permission notice shall be included in
 // all copies or modified versions of the Software.
-// 
+//
 // 2. The User is one of the following:
 //   a. An individual person, laboring for themselves
 //   b. A non-profit organization
 //   c. An educational institution
 //   d. An organization that seeks shared profit for all of its members, and
 //      allows non-members to set the cost of their labor
-// 
+//
 // 3. If the User is an organization with owners, then all owners are workers
 // and all workers are owners with equal equity and/or equal vote.
-// 
+//
 // 4. If the User is an organization, then the User is not law enforcement or
 // military, or working for or under either.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY
 // KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 // FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
@@ -38,25 +38,74 @@
 // * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
 // * [2] Integer Dilation and Contraction for Quadtrees and Octrees - Leo Stocco and Gunther Schrack
 // * [3] Fast Additions on Masked Integers - Michael D Adams and David S Wise
-// 
+//
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
-use std::{num::Wrapping, mem::size_of};
+pub trait NumTraits: Copy {
+    fn zero() -> Self;
+    fn one() -> Self;
+    fn mul_wrapping(self, rhs: Self) -> Self;
+    fn add_wrapping(self, rhs: Self) -> Self;
+    fn sub_wrapping(self, rhs: Self) -> Self;
+    fn bit_not(self) -> Self;
+    fn bit_and(self, rhs: Self) -> Self;
+}
+
+macro_rules! impl_num_traits {
+    ($($t:ty),+) => {$(
+        impl NumTraits for $t {
+            #[inline]
+            fn zero() -> Self {
+                0
+            }
+            #[inline]
+            fn one() -> Self {
+                1
+            }
+            #[inline]
+            fn mul_wrapping(self, rhs: Self) -> Self {
+                self.wrapping_mul(rhs)
+            }
+            #[inline]
+            fn add_wrapping(self, rhs: Self) -> Self {
+                self.wrapping_add(rhs)
+            }
+            #[inline]
+            fn sub_wrapping(self, rhs: Self) -> Self {
+                self.wrapping_sub(rhs)
+            }
+            #[inline]
+            fn bit_not(self) -> Self {
+                !self
+            }
+            #[inline]
+            fn bit_and(self, rhs: Self) -> Self {
+                self & rhs
+            }
+        }
+    )+};
+}
+
+impl_num_traits!(u8, u16, u32, u64, u128, usize);
 
 macro_rules! impl_dilate_dn {
     () => {
         #[inline]
         fn dilate_explicit_dn<const D: usize>(self) -> Self {
             debug_assert!(D > 2, "Generic parameter 'D' must be greater than 2");
-            debug_assert!(self <= build_fixed_undilated_max::<Self, D>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+            debug_assert!(
+                self <= build_fixed_undilated_max::<Self, D>() as Self,
+                "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            );
 
-            let mut v = Wrapping(self);
+            let mut v = self;
             let mut i = 0;
             while i <= dilate_max_round::<Self, D>() {
-                v = (v * Wrapping(dilate_mult::<Self, D>(i) as Self)) & Wrapping(dilate_mask::<Self, D>(i) as Self);
+                v = v.mul_wrapping(dilate_mult::<Self, D>(i) as Self)
+                    & dilate_mask::<Self, D>(i) as Self;
                 i += 1;
             }
-            v.0
+            v
         }
     };
 }
@@ -66,18 +115,19 @@ macro_rules! impl_undilate_dn {
         #[inline]
         fn undilate_explicit_dn<const D: usize>(self) -> Self {
             debug_assert!(D > 1, "Generic parameter 'D' must be greater than 1");
-            let mut v = Wrapping(self);
+            let mut v = self;
             let mut i = 0;
             while i <= undilate_max_round::<Self, D>() {
-                v = (v * Wrapping(undilate_mult::<Self, D>(i) as Self)) & Wrapping(undilate_mask::<Self, D>(i) as Self);
+                v = v.mul_wrapping(undilate_mult::<Self, D>(i) as Self)
+                    & undilate_mask::<Self, D>(i) as Self;
                 i += 1;
             }
-            v.0 >> undilate_shift::<Self, D>() as Self
+            v >> undilate_shift::<Self, D>() as Self
         }
     };
 }
 
-pub trait DilateExplicit: Sized {
+pub trait DilateExplicit: NumTraits {
     fn dilate_explicit_d2(self) -> Self;
     fn dilate_explicit_d3(self) -> Self;
     fn dilate_explicit_dn<const D: usize>(self) -> Self;
@@ -86,7 +136,10 @@ pub trait DilateExplicit: Sized {
 impl DilateExplicit for u8 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 2>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [2]
         let mut v = self;
@@ -97,13 +150,16 @@ impl DilateExplicit for u8 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 3>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x11)) & Wrapping(0xC3);
-        v = (v * Wrapping(0x05)) & Wrapping(0x49);
-        v.0
+        let mut v = self;
+        v = v.mul_wrapping(0x11) & 0xC3;
+        v = v.mul_wrapping(0x05) & 0x49;
+        v
     }
 
     impl_dilate_dn!();
@@ -112,7 +168,10 @@ impl DilateExplicit for u8 {
 impl DilateExplicit for u16 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 2>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [2]
         let mut v = self;
@@ -124,14 +183,17 @@ impl DilateExplicit for u16 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 3>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x101)) & Wrapping(0xF00F);
-        v = (v * Wrapping(0x011)) & Wrapping(0x30C3);
-        v = (v * Wrapping(0x005)) & Wrapping(0x9249);
-        v.0
+        let mut v = self;
+        v = v.mul_wrapping(0x101) & 0xF00F;
+        v = v.mul_wrapping(0x011) & 0x30C3;
+        v = v.mul_wrapping(0x005) & 0x9249;
+        v
     }
 
     impl_dilate_dn!();
@@ -140,7 +202,10 @@ impl DilateExplicit for u16 {
 impl DilateExplicit for u32 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 2>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [2]
         let mut v = self;
@@ -153,15 +218,18 @@ impl DilateExplicit for u32 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 3>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x10001)) & Wrapping(0xFF0000FF);
-        v = (v * Wrapping(0x00101)) & Wrapping(0x0F00F00F);
-        v = (v * Wrapping(0x00011)) & Wrapping(0xC30C30C3);
-        v = (v * Wrapping(0x00005)) & Wrapping(0x49249249);
-        v.0
+        let mut v = self;
+        v = v.mul_wrapping(0x10001) & 0xFF0000FF;
+        v = v.mul_wrapping(0x00101) & 0x0F00F00F;
+        v = v.mul_wrapping(0x00011) & 0xC30C30C3;
+        v = v.mul_wrapping(0x00005) & 0x49249249;
+        v
     }
 
     impl_dilate_dn!();
@@ -170,7 +238,10 @@ impl DilateExplicit for u32 {
 impl DilateExplicit for u64 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 2>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [2]
         let mut v = self;
@@ -184,16 +255,19 @@ impl DilateExplicit for u64 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 3>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x100000001)) & Wrapping(0xFFFF00000000FFFF);
-        v = (v * Wrapping(0x000010001)) & Wrapping(0x00FF0000FF0000FF);
-        v = (v * Wrapping(0x000000101)) & Wrapping(0xF00F00F00F00F00F);
-        v = (v * Wrapping(0x000000011)) & Wrapping(0x30C30C30C30C30C3);
-        v = (v * Wrapping(0x000000005)) & Wrapping(0x9249249249249249);
-        v.0
+        let mut v = self;
+        v = v.mul_wrapping(0x100000001) & 0xFFFF00000000FFFF;
+        v = v.mul_wrapping(0x000010001) & 0x00FF0000FF0000FF;
+        v = v.mul_wrapping(0x000000101) & 0xF00F00F00F00F00F;
+        v = v.mul_wrapping(0x000000011) & 0x30C30C30C30C30C3;
+        v = v.mul_wrapping(0x000000005) & 0x9249249249249249;
+        v
     }
 
     impl_dilate_dn!();
@@ -202,7 +276,10 @@ impl DilateExplicit for u64 {
 impl DilateExplicit for u128 {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 2>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [2]
         let mut v = self;
@@ -217,17 +294,20 @@ impl DilateExplicit for u128 {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 3>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x10000000000000001)) & Wrapping(0xFFFFFFFF0000000000000000FFFFFFFF);
-        v = (v * Wrapping(0x00000000100000001)) & Wrapping(0x0000FFFF00000000FFFF00000000FFFF);
-        v = (v * Wrapping(0x00000000000010001)) & Wrapping(0xFF0000FF0000FF0000FF0000FF0000FF);
-        v = (v * Wrapping(0x00000000000000101)) & Wrapping(0x0F00F00F00F00F00F00F00F00F00F00F);
-        v = (v * Wrapping(0x00000000000000011)) & Wrapping(0xC30C30C30C30C30C30C30C30C30C30C3);
-        v = (v * Wrapping(0x00000000000000005)) & Wrapping(0x49249249249249249249249249249249);
-        v.0
+        let mut v = self;
+        v = v.mul_wrapping(0x10000000000000001) & 0xFFFFFFFF0000000000000000FFFFFFFF;
+        v = v.mul_wrapping(0x00000000100000001) & 0x0000FFFF00000000FFFF00000000FFFF;
+        v = v.mul_wrapping(0x00000000000010001) & 0xFF0000FF0000FF0000FF0000FF0000FF;
+        v = v.mul_wrapping(0x00000000000000101) & 0x0F00F00F00F00F00F00F00F00F00F00F;
+        v = v.mul_wrapping(0x00000000000000011) & 0xC30C30C30C30C30C30C30C30C30C30C3;
+        v = v.mul_wrapping(0x00000000000000005) & 0x49249249249249249249249249249249;
+        v
     }
 
     impl_dilate_dn!();
@@ -236,7 +316,10 @@ impl DilateExplicit for u128 {
 impl DilateExplicit for usize {
     #[inline]
     fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 2>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 2>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).dilate_explicit_d2();
@@ -249,7 +332,10 @@ impl DilateExplicit for usize {
 
     #[inline]
     fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(self <= build_fixed_undilated_max::<Self, 3>() as Self, "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+        debug_assert!(
+            self <= build_fixed_undilated_max::<Self, 3>() as Self,
+            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        );
 
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).dilate_explicit_d3();
@@ -263,7 +349,7 @@ impl DilateExplicit for usize {
     impl_dilate_dn!();
 }
 
-pub trait UndilateExplicit: Sized {
+pub trait UndilateExplicit: NumTraits {
     fn undilate_explicit_d2(self) -> Self;
     fn undilate_explicit_d3(self) -> Self;
     fn undilate_explicit_dn<const D: usize>(self) -> Self;
@@ -273,18 +359,18 @@ impl UndilateExplicit for u8 {
     #[inline]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = v * Wrapping(0x3) & Wrapping(0x66);
-        v = v * Wrapping(0x5) & Wrapping(0x78);
-        v.0 >> 3
+        let mut v = self;
+        v = v.mul_wrapping(0x3) & 0x66;
+        v = v.mul_wrapping(0x5) & 0x78;
+        v >> 3
     }
 
     #[inline]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x15)) & Wrapping(0x0e);
-        v.0 >> 2
+        let mut v = self;
+        v = v.mul_wrapping(0x15) & 0x0e;
+        v >> 2
     }
 
     impl_undilate_dn!();
@@ -294,20 +380,20 @@ impl UndilateExplicit for u16 {
     #[inline]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = v * Wrapping(0x003) & Wrapping(0x6666);
-        v = v * Wrapping(0x005) & Wrapping(0x7878);
-        v = v * Wrapping(0x011) & Wrapping(0x7f80);
-        v.0 >> 7
+        let mut v = self;
+        v = v.mul_wrapping(0x003) & 0x6666;
+        v = v.mul_wrapping(0x005) & 0x7878;
+        v = v.mul_wrapping(0x011) & 0x7f80;
+        v >> 7
     }
 
     #[inline]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x0015)) & Wrapping(0x1c0e);
-        v = (v * Wrapping(0x1041)) & Wrapping(0x1ff0);
-        v.0 >> 8
+        let mut v = self;
+        v = v.mul_wrapping(0x0015) & 0x1c0e;
+        v = v.mul_wrapping(0x1041) & 0x1ff0;
+        v >> 8
     }
 
     impl_undilate_dn!();
@@ -317,22 +403,22 @@ impl UndilateExplicit for u32 {
     #[inline]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = v * Wrapping(0x00000003) & Wrapping(0x66666666);
-        v = v * Wrapping(0x00000005) & Wrapping(0x78787878);
-        v = v * Wrapping(0x00000011) & Wrapping(0x7F807F80);
-        v = v * Wrapping(0x00000101) & Wrapping(0x7FFF8000);
-        v.0 >> 15
+        let mut v = self;
+        v = v.mul_wrapping(0x00000003) & 0x66666666;
+        v = v.mul_wrapping(0x00000005) & 0x78787878;
+        v = v.mul_wrapping(0x00000011) & 0x7F807F80;
+        v = v.mul_wrapping(0x00000101) & 0x7FFF8000;
+        v >> 15
     }
 
     #[inline]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x00015)) & Wrapping(0x0E070381);
-        v = (v * Wrapping(0x01041)) & Wrapping(0x0FF80001);
-        v = (v * Wrapping(0x40001)) & Wrapping(0x0FFFFFFE);
-        v.0 >> 18
+        let mut v = self;
+        v = v.mul_wrapping(0x00015) & 0x0E070381;
+        v = v.mul_wrapping(0x01041) & 0x0FF80001;
+        v = v.mul_wrapping(0x40001) & 0x0FFFFFFE;
+        v >> 18
     }
 
     impl_undilate_dn!();
@@ -342,23 +428,23 @@ impl UndilateExplicit for u64 {
     #[inline]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = v * Wrapping(0x00003) & Wrapping(0x6666666666666666);
-        v = v * Wrapping(0x00005) & Wrapping(0x7878787878787878);
-        v = v * Wrapping(0x00011) & Wrapping(0x7F807F807F807F80);
-        v = v * Wrapping(0x00101) & Wrapping(0x7FFF80007FFF8000);
-        v = v * Wrapping(0x10001) & Wrapping(0x7FFFFFFF80000000);
-        v.0 >> 31
+        let mut v = self;
+        v = v.mul_wrapping(0x00003) & 0x6666666666666666;
+        v = v.mul_wrapping(0x00005) & 0x7878787878787878;
+        v = v.mul_wrapping(0x00011) & 0x7F807F807F807F80;
+        v = v.mul_wrapping(0x00101) & 0x7FFF80007FFF8000;
+        v = v.mul_wrapping(0x10001) & 0x7FFFFFFF80000000;
+        v >> 31
     }
 
     #[inline]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x0000000000000015)) & Wrapping(0x1c0e070381c0e070);
-        v = (v * Wrapping(0x0000000000001041)) & Wrapping(0x1ff00003fe00007f);
-        v = (v * Wrapping(0x0000001000040001)) & Wrapping(0x1ffffffc00000000);
-        v.0 >> 40
+        let mut v = self;
+        v = v.mul_wrapping(0x0000000000000015) & 0x1c0e070381c0e070;
+        v = v.mul_wrapping(0x0000000000001041) & 0x1ff00003fe00007f;
+        v = v.mul_wrapping(0x0000001000040001) & 0x1ffffffc00000000;
+        v >> 40
     }
 
     impl_undilate_dn!();
@@ -368,25 +454,25 @@ impl UndilateExplicit for u128 {
     #[inline]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = v * Wrapping(0x000000003) & Wrapping(0x66666666666666666666666666666666);
-        v = v * Wrapping(0x000000005) & Wrapping(0x78787878787878787878787878787878);
-        v = v * Wrapping(0x000000011) & Wrapping(0x7f807f807f807f807f807f807f807f80);
-        v = v * Wrapping(0x000000101) & Wrapping(0x7fff80007fff80007fff80007fff8000);
-        v = v * Wrapping(0x000010001) & Wrapping(0x7fffffff800000007fffffff80000000);
-        v = v * Wrapping(0x100000001) & Wrapping(0x7fffffffffffffff8000000000000000);
-        v.0 >> 63
+        let mut v = self;
+        v = v.mul_wrapping(0x000000003) & 0x66666666666666666666666666666666;
+        v = v.mul_wrapping(0x000000005) & 0x78787878787878787878787878787878;
+        v = v.mul_wrapping(0x000000011) & 0x7f807f807f807f807f807f807f807f80;
+        v = v.mul_wrapping(0x000000101) & 0x7fff80007fff80007fff80007fff8000;
+        v = v.mul_wrapping(0x000010001) & 0x7fffffff800000007fffffff80000000;
+        v = v.mul_wrapping(0x100000001) & 0x7fffffffffffffff8000000000000000;
+        v >> 63
     }
 
     #[inline]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
-        let mut v = Wrapping(self);
-        v = (v * Wrapping(0x00000000000000000000000000000015)) & Wrapping(0x0e070381c0e070381c0e070381c0e070);
-        v = (v * Wrapping(0x00000000000000000000000000001041)) & Wrapping(0x0ff80001ff00003fe00007fc0000ff80);
-        v = (v * Wrapping(0x00000000000000000000001000040001)) & Wrapping(0x0ffffffe00000000000007ffffff0000);
-        v = (v * Wrapping(0x00001000000000000040000000000001)) & Wrapping(0x0ffffffffffffffffffff80000000000);
-        v.0 >> 82
+        let mut v = self;
+        v = v.mul_wrapping(0x00000000000000000000000000000015) & 0x0e070381c0e070381c0e070381c0e070;
+        v = v.mul_wrapping(0x00000000000000000000000000001041) & 0x0ff80001ff00003fe00007fc0000ff80;
+        v = v.mul_wrapping(0x00000000000000000000001000040001) & 0x0ffffffe00000000000007ffffff0000;
+        v = v.mul_wrapping(0x00001000000000000040000000000001) & 0x0ffffffffffffffffffff80000000000;
+        v >> 82
     }
 
     impl_undilate_dn!();
@@ -419,7 +505,10 @@ impl UndilateExplicit for usize {
 }
 
 #[inline]
-pub fn dilate<T, const D: usize>(value: T) -> T where T: DilateExplicit {
+pub fn dilate_implicit<T, const D: usize>(value: T) -> T
+where
+    T: DilateExplicit,
+{
     match D {
         1 => value,
         2 => value.dilate_explicit_d2(),
@@ -429,7 +518,10 @@ pub fn dilate<T, const D: usize>(value: T) -> T where T: DilateExplicit {
 }
 
 #[inline]
-pub fn undilate<T, const D: usize>(value: T) -> T where T: UndilateExplicit {
+pub fn undilate_implicit<T, const D: usize>(value: T) -> T
+where
+    T: UndilateExplicit,
+{
     match D {
         1 => value,
         2 => value.undilate_explicit_d2(),
@@ -459,7 +551,7 @@ const fn ilog(base: usize, n: usize) -> usize {
 // Calculates the maximum undilated value that fits into D-dilated T (fixed)
 #[inline]
 pub(crate) const fn build_fixed_undilated_max<T, const D: usize>() -> u128 {
-    let bits_available = size_of::<T>() * 8;
+    let bits_available = core::mem::size_of::<T>() * 8;
     let s_minus_1 = bits_available / D - 1;
 
     // By shifting in two phases like this, we can avoid overflow in case of D1
@@ -485,7 +577,7 @@ pub(crate) const fn build_dilated_mask(p_repetitions: usize, q_width: usize) -> 
 // See Algorithm 9 in citation [1]
 #[inline]
 pub(crate) const fn dilate_max_round<T, const D: usize>() -> usize {
-    let s = (size_of::<T>() * 8) / D;
+    let s = (core::mem::size_of::<T>() * 8) / D;
     ilog(D - 1, s)
 }
 
@@ -505,7 +597,7 @@ pub(crate) const fn dilate_mask<T, const D: usize>(round: usize) -> u128 {
     let num_set_bits = (D - 1).pow(round_inv as u32);
     let num_blank_bits = num_set_bits * (D - 1);
     let sequence_length = num_set_bits + num_blank_bits;
-    let mut repetitions = (size_of::<T>() * 8) / sequence_length + 1;
+    let mut repetitions = (core::mem::size_of::<T>() * 8) / sequence_length + 1;
 
     let mut v = 0;
     while repetitions > 0 {
@@ -519,7 +611,7 @@ pub(crate) const fn dilate_mask<T, const D: usize>(round: usize) -> u128 {
 // See Algorithm 10 in citation [1]
 #[inline]
 pub(crate) const fn undilate_max_round<T, const D: usize>() -> usize {
-    let s = (size_of::<T>() * 8) / D;
+    let s = (core::mem::size_of::<T>() * 8) / D;
     ilog(D, s)
 }
 
@@ -534,14 +626,18 @@ pub(crate) const fn undilate_mult<T, const D: usize>(round: usize) -> u128 {
 // See section IV.D in citation [1]
 #[inline]
 pub(crate) const fn undilate_mask<T, const D: usize>(round: usize) -> u128 {
-    let s = (size_of::<T>() * 8) / D;
+    let s = (core::mem::size_of::<T>() * 8) / D;
     let num_blank_bits = D.pow(round as u32 + 1) * (D - 1);
     let num_set_bits = D.pow(round as u32 + 1);
 
     let sequence_length = num_blank_bits + num_set_bits;
     let left_most_bit = D * (s - 1) + 1;
 
-    let num_set_bits = if num_set_bits < left_most_bit { num_set_bits } else { left_most_bit };
+    let num_set_bits = if num_set_bits < left_most_bit {
+        num_set_bits
+    } else {
+        left_most_bit
+    };
 
     let initial_shift = left_most_bit - num_set_bits;
 
@@ -556,7 +652,7 @@ pub(crate) const fn undilate_mask<T, const D: usize>(round: usize) -> u128 {
 
 #[inline]
 pub(crate) const fn undilate_shift<T, const D: usize>() -> usize {
-    let s = (size_of::<T>() * 8) / D;
+    let s = (core::mem::size_of::<T>() * 8) / D;
     (D * (s - 1) + 1) - s
 }
 
@@ -565,6 +661,8 @@ pub(crate) const fn undilate_shift<T, const D: usize>() -> usize {
 // generation is an extremely fiddly process, so it makes sense to test them.
 #[cfg(test)]
 mod tests {
+    extern crate std;
+
     use paste::paste;
     use std::marker::PhantomData;
 
@@ -581,20 +679,21 @@ mod tests {
                 fn dilated_max() -> $t {
                     $dil_max
                 }
-                
+
                 #[inline]
                 fn num_rounds() -> usize {
                     $num_rounds
                 }
 
                 #[inline]
-                fn test_cases() -> Vec<(usize, $t, $t)> {
-                    vec![$(($round, $mult, $mask)),*]
+                fn test_cases() -> std::vec::Vec<(usize, $t, $t)> {
+                    std::vec![$(($round, $mult, $mask)),*]
                 }
             }
         };
     }
 
+    // This is kinda insane - TODO move to a file
     impl_dilation_test_data!(u8, 1, 0xff, 0,);
     impl_dilation_test_data!(u8, 2, 0x55, 0,);
     impl_dilation_test_data!(u8, 3, 0x09, 2, (0, 0x11, 0xC3), (1, 0x05, 0x49));
@@ -656,20 +755,21 @@ mod tests {
                 fn undilate_shift() -> usize {
                     $undil_shift
                 }
-                
+
                 #[inline]
                 fn num_rounds() -> usize {
                     $num_rounds
                 }
 
                 #[inline]
-                fn test_cases() -> Vec<(usize, $t, $t)> {
-                    vec![$(($round, $mult, $mask)),*]
+                fn test_cases() -> std::vec::Vec<(usize, $t, $t)> {
+                    std::vec![$(($round, $mult, $mask)),*]
                 }
             }
         };
     }
 
+    // This is kinda insane - TODO move to a file
     impl_undilation_test_data!(u8, 1, 0xff, 0, 0,);
     impl_undilation_test_data!(u8, 2, 0x0f, 3, 3, (0, 0x03, 0x66), (1, 0x05, 0x78), (2, 0x11, 0x7F));
     impl_undilation_test_data!(u8, 3, 0x03, 2, 1, (0, 0x15, 0x0e));
@@ -705,12 +805,12 @@ mod tests {
     impl_undilation_test_data!(u64, 6, 0x00000000000003ff, 45, 2, (0, 0x0000000002108421, 0x007e00000007e000), (1, 0x1000000040000001, 0x007ffffffff80000));
     impl_undilation_test_data!(u64, 7, 0x00000000000001ff, 48, 2, (0, 0x0000001041041041, 0x01fc0000000000fe), (1, 0x0000040000000001, 0x01ffffffffffff00));
     impl_undilation_test_data!(u64, 8, 0x00000000000000ff, 49, 2, (0, 0x0002040810204081, 0x01fe000000000000), (1, 0x0100000000000001, 0x01ffffffffffffff));
-    
-    impl_undilation_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff, 0,   0,);
-    impl_undilation_test_data!(u128, 2, 0x0000000000000000ffffffffffffffff, 63,  7, (0, 0x00000000000000000000000000000003, 0x66666666666666666666666666666666), (1, 0x00000000000000000000000000000005, 0x78787878787878787878787878787878), (2, 0x00000000000000000000000000000011, 0x7f807f807f807f807f807f807f807f80), (3, 0x00000000000000000000000000000101, 0x7fff80007fff80007fff80007fff8000), (4, 0x00000000000000000000000000010001, 0x7fffffff800000007fffffff80000000), (5, 0x00000000000000000000000100000001, 0x7fffffffffffffff8000000000000000), (6, 0x00000000000000010000000000000001, 0x7fffffffffffffffffffffffffffffff));
-    impl_undilation_test_data!(u128, 3, 0x0000000000000000000003ffffffffff, 82,  4, (0, 0x00000000000000000000000000000015, 0x0e070381c0e070381c0e070381c0e070), (1, 0x00000000000000000000000000001041, 0x0ff80001ff00003fe00007fc0000ff80), (2, 0x00000000000000000000001000040001, 0x0ffffffe00000000000007ffffff0000), (3, 0x00001000000000000040000000000001, 0x0ffffffffffffffffffff80000000000));
-    impl_undilation_test_data!(u128, 4, 0x000000000000000000000000ffffffff, 93,  3, (0, 0x00000000000000000000000000000249, 0x1e001e001e001e001e001e001e001e00), (1, 0x00000000000000000000001001001001, 0x1fffe000000000001fffe00000000000), (2, 0x00000001000000000001000000000001, 0x1fffffffffffffffe000000000000000));
-    impl_undilation_test_data!(u128, 5, 0x00000000000000000000000001ffffff, 96,  3, (0, 0x00000000000000000000000000011111, 0x01f00000f800007c00003e00001f0000), (1, 0x00000000000100001000010000100001, 0x01ffffff000000000000000000000000), (2, 0x00000010000000000000000000000001, 0x01ffffffffffffffffffffffffffffff));
+
+    impl_undilation_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff, 0, 0,);
+    impl_undilation_test_data!(u128, 2, 0x0000000000000000ffffffffffffffff, 063, 7, (0, 0x00000000000000000000000000000003, 0x66666666666666666666666666666666), (1, 0x00000000000000000000000000000005, 0x78787878787878787878787878787878), (2, 0x00000000000000000000000000000011, 0x7f807f807f807f807f807f807f807f80), (3, 0x00000000000000000000000000000101, 0x7fff80007fff80007fff80007fff8000), (4, 0x00000000000000000000000000010001, 0x7fffffff800000007fffffff80000000), (5, 0x00000000000000000000000100000001, 0x7fffffffffffffff8000000000000000), (6, 0x00000000000000010000000000000001, 0x7fffffffffffffffffffffffffffffff));
+    impl_undilation_test_data!(u128, 3, 0x0000000000000000000003ffffffffff, 082, 4, (0, 0x00000000000000000000000000000015, 0x0e070381c0e070381c0e070381c0e070), (1, 0x00000000000000000000000000001041, 0x0ff80001ff00003fe00007fc0000ff80), (2, 0x00000000000000000000001000040001, 0x0ffffffe00000000000007ffffff0000), (3, 0x00001000000000000040000000000001, 0x0ffffffffffffffffffff80000000000));
+    impl_undilation_test_data!(u128, 4, 0x000000000000000000000000ffffffff, 093, 3, (0, 0x00000000000000000000000000000249, 0x1e001e001e001e001e001e001e001e00), (1, 0x00000000000000000000001001001001, 0x1fffe000000000001fffe00000000000), (2, 0x00000001000000000001000000000001, 0x1fffffffffffffffe000000000000000));
+    impl_undilation_test_data!(u128, 5, 0x00000000000000000000000001ffffff, 096, 3, (0, 0x00000000000000000000000000011111, 0x01f00000f800007c00003e00001f0000), (1, 0x00000000000100001000010000100001, 0x01ffffff000000000000000000000000), (2, 0x00000010000000000000000000000001, 0x01ffffffffffffffffffffffffffffff));
     impl_undilation_test_data!(u128, 6, 0x000000000000000000000000001fffff, 100, 2, (0, 0x00000000000000000000000002108421, 0x01f80000001f80000001f80000001f80), (1, 0x01000000040000001000000040000001, 0x01ffffffffe000000000000000000000));
     impl_undilation_test_data!(u128, 7, 0x0000000000000000000000000003ffff, 102, 2, (0, 0x00000000000000000000001041041041, 0x00fe00000000007f00000000003f8000), (1, 0x40000000001000000000040000000001, 0x00ffffffffffff800000000000000000));
     impl_undilation_test_data!(u128, 8, 0x0000000000000000000000000000ffff, 105, 2, (0, 0x00000000000000000002040810204081, 0x01fe00000000000001fe000000000000), (1, 0x00010000000000000100000000000001, 0x01fffffffffffffffe00000000000000));
@@ -740,7 +840,6 @@ mod tests {
         ($t:ty, $($d:literal),+) => {$(
             paste! {
                 mod [< $t _d $d >] {
-                    use std::mem::size_of;
                     use super::{DilationTestData, UndilationTestData};
                     use super::super::{build_fixed_undilated_max, build_dilated_mask, dilate_max_round, dilate_mult, dilate_mask, undilate_max_round, undilate_mult, undilate_mask, undilate_shift};
 
@@ -751,7 +850,7 @@ mod tests {
 
                     #[test]
                     fn dilated_max_is_correct() {
-                        assert_eq!(build_dilated_mask((size_of::<$t>() * 8 / $d) as usize, $d as usize) as $t, DilationTestData::<$t, $d>::dilated_max());
+                        assert_eq!(build_dilated_mask((core::mem::size_of::<$t>() * 8 / $d) as usize, $d as usize) as $t, DilationTestData::<$t, $d>::dilated_max());
                     }
 
                     #[test]

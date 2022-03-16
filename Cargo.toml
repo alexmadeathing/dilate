@@ -11,7 +11,8 @@ readme = "README.md"
 categories = ["algorithms", "encoding"]
 keywords = ["morton", "integer", "dilate", "dilation", "octree"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+std = []
 
 [dependencies]
 
