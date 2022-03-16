@@ -12,7 +12,7 @@ categories = ["algorithms", "encoding"]
 keywords = ["morton", "integer", "dilate", "dilation", "octree"]
 
 [features]
-no_std = []
+std = []
 
 [dependencies]
 

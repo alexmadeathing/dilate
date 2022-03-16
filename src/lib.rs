@@ -41,7 +41,7 @@
 //
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
-#![cfg_attr(feature = "no_std", no_std)]
+#![no_std]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_doc_code_examples)]
 #![deny(rustdoc::invalid_rust_codeblocks)]
@@ -450,8 +450,8 @@ where
     /// default of panicking on overflow.
     /// 
     /// # no_std
-    /// When the feature no_std is *not* used, you may also use the `+`
-    /// operator to perform this operation.
+    /// By default, dilate is `no_std` compliant. When the feature `std` is
+    /// provided, you may also use the `+` operator to perform this operation.
     /// 
     /// # Examples
     /// ```
@@ -485,8 +485,8 @@ where
     /// default of panicking on overflow.
     /// 
     /// # no_std
-    /// When the feature no_std is *not* used, you may also use the `+=`
-    /// operator to perform this operation.
+    /// By default, dilate is `no_std` compliant. When the feature `std` is
+    /// provided, you may also use the `+=` operator to perform this operation.
     /// 
     /// # Examples
     /// ```
@@ -516,8 +516,8 @@ where
     /// default of panicking on overflow.
     /// 
     /// # no_std
-    /// When the feature no_std is *not* used, you may also use the `-`
-    /// operator to perform this operation.
+    /// By default, dilate is `no_std` compliant. When the feature `std` is
+    /// provided, you may also use the `-` operator to perform this operation.
     /// 
     /// # Examples
     /// ```
@@ -546,8 +546,8 @@ where
     /// default of panicking on overflow.
     /// 
     /// # no_std
-    /// When the feature no_std is *not* used, you may also use the `-=`
-    /// operator to perform this operation.
+    /// By default, dilate is `no_std` compliant. When the feature `std` is
+    /// provided, you may also use the `-=` operator to perform this operation.
     /// 
     /// # Examples
     /// ```
@@ -569,10 +569,10 @@ where
     }
 }
 
-#[cfg(not(feature = "no_std"))]
+#[cfg(std)]
 pub use std_impls::*;
 
-#[cfg(not(feature = "no_std"))]
+#[cfg(std)]
 mod std_impls {
     use super::{DilatedInt, DilationMethod};
     use std::{

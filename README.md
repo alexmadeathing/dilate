@@ -34,12 +34,13 @@ combinations, please see
 and
 [Supported Dilations via Fixed](https://docs.rs/dilate/latest/dilate/fixed/trait.DilateFixed.html#supported-fixed-dilations).
 
-# Goals
+# Features
 * High performance - Ready to use in performance sensitive contexts
 * Multiple types - Supports `u8`, `u16`, `u32`, `u64`, `u128`, `usize` (signed versions not yet planned)
 * N-dimensional - Suitable for multi-dimensional applications (up to 16 dimensions under certain conditions)
-* Trait based implementation - Conforms to standard Rust implementation patterns
-* No dependencies - Depends on Rust standard library only
+* Extensible - Flexible trait based implementation
+* `no_std` - Suitable for embedded devices (additional standard library features can be enabled via the `std` feature)
+* No dependencies - Keeps your dependency tree clean
 
 # Getting Started
 First, link dilate into your project's cargo.toml.
@@ -48,6 +49,7 @@ Check for the latest version at [crates.io](https://crates.io/crates/dilate):
 ```
 [dependencies]
 dilate = "0.5.0"
+# dilate = { version = "0.5.0", features = ["std"] } <- If you want std features like Add, Sub and Display
 ```
 
 Next, import dilate into your project and try out some of the features:

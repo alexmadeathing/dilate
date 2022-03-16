@@ -395,7 +395,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT) + DilatedInt::<DilationMethodT>(*b as DilatedT), DilatedInt::<DilationMethodT>(*ans as DilatedT));
+                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT).add(DilatedInt::<DilationMethodT>(*b as DilatedT)), DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -419,7 +419,7 @@ mod tests {
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
                             let mut assigned = DilatedInt::<DilationMethodT>(*a as DilatedT);
-                            assigned += DilatedInt::<DilationMethodT>(*b as DilatedT);
+                            assigned.add_assign(DilatedInt::<DilationMethodT>(*b as DilatedT));
                             assert_eq!(assigned, DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
@@ -443,7 +443,7 @@ mod tests {
                         // So we have to filter to ensure they support all numbers involved with a particular test case
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
-                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT) - DilatedInt::<DilationMethodT>(*b as DilatedT), DilatedInt::<DilationMethodT>(*ans as DilatedT));
+                            assert_eq!(DilatedInt::<DilationMethodT>(*a as DilatedT).sub(DilatedInt::<DilationMethodT>(*b as DilatedT)), DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
 
@@ -467,7 +467,7 @@ mod tests {
                         let mask_u128 = TestData::<DilationMethodT>::dilated_max() as u128;
                         for (a, b, ans) in test_cases.iter().filter(|(a, b, ans)| *a <= mask_u128 && *b <= mask_u128 && *ans <= mask_u128) {
                             let mut assigned = DilatedInt::<DilationMethodT>(*a as DilatedT);
-                            assigned -= DilatedInt::<DilationMethodT>(*b as DilatedT);
+                            assigned.sub_assign(DilatedInt::<DilationMethodT>(*b as DilatedT));
                             assert_eq!(assigned, DilatedInt::<DilationMethodT>(*ans as DilatedT));
                         }
                     }
