@@ -55,7 +55,7 @@ use crate::{internal, DilatableType, DilatedInt, DilationMethod};
 /// which is generally less verbose and therefore more user friendly.
 ///
 /// # Examples
-/// ```
+/// ```rust
 /// use dilate::*;
 ///
 /// assert_eq!(Expand::<u8, 2>::UNDILATED_MAX, 255);
@@ -134,7 +134,7 @@ pub trait DilateExpand: DilatableType {
     /// denoted by D.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// let value: u8 = 0b1101;
