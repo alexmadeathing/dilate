@@ -46,7 +46,7 @@ and
 First, link dilate into your project's cargo.toml.
 
 Check for the latest version at [crates.io](https://crates.io/crates/dilate):
-```
+```toml
 [dependencies]
 dilate = "0.6.0"
 # dilate = { version = "0.6.0", features = ["std"] } <- If you want std features like Add, Sub and Display
@@ -54,7 +54,7 @@ dilate = "0.6.0"
 
 Next, import dilate into your project and try out some of the features:
 
-```
+```rust
 use dilate::*;
 
 let original: u8 = 0b1101;
@@ -71,7 +71,7 @@ assert_eq!(dilated.undilate(), original);
 ```
 *Example 2-dilation and undilation usage*
 
-```
+```rust
 use dilate::*;
 
 let original: u8 = 0b1011;

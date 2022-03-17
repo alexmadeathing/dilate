@@ -98,7 +98,7 @@
 //! [Supported Fixed Dilations](crate::fixed::DilateFixed#supported-fixed-dilations).
 //!
 //! # Examples
-//! ```
+//! ```rust
 //! use dilate::*;
 //!
 //! let original: u8 = 0b1101;
@@ -115,7 +115,7 @@
 //! ```
 //! *Example 2-dilation and undilation usage*
 //!
-//! ```
+//! ```rust
 //! use dilate::*;
 //!
 //! let original: u8 = 0b1011;
@@ -186,7 +186,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// [DilationMethod::Undilated] depending on the dilation method used.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// assert_eq!(Expand::<u8, 2>::UNDILATED_BITS, 8);
@@ -203,7 +203,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// [DilationMethod::Undilated] depending on the dilation method used.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// assert_eq!(Expand::<u8, 2>::UNDILATED_MAX, 255);
@@ -220,7 +220,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// [DilationMethod::Dilated] depending on the dilation method used.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// assert_eq!(Expand::<u8, 2>::DILATED_BITS, 16);
@@ -235,7 +235,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// and the number of padding 0 bits depends on the dilation method used.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// assert_eq!(Expand::<u8, 2>::DILATED_MAX, 0b0101010101010101);
@@ -249,7 +249,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// [DilationMethod::DILATED_BITS].
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// assert_eq!(Expand::<u8, 3>::DILATED_MASK, 0xffffff);
@@ -265,7 +265,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// and [DilateFixed::dilate_fixed()].
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>::new(0b01010001));
@@ -285,7 +285,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// the more human friendly method: [DilatedInt::undilate()].
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// let dilated = Expand::<u8, 2>::dilate(0b1101);
@@ -318,7 +318,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
 /// # Examples
 ///
 /// Example 2-Dilation Usage:
-/// ```
+/// ```rust
 /// use dilate::*;
 ///
 /// let original: u8 = 0b1101;
@@ -331,7 +331,7 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
 /// ```
 ///
 /// Example 3-Dilation Usage:
-/// ```
+/// ```rust
 /// use dilate::*;
 ///
 /// let original: u8 = 0b1011;
@@ -378,7 +378,7 @@ where
     /// [DilatedInt] back to a regular undilated integer value.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// let dilated = 0b1101u8.dilate_expand::<2>();
@@ -402,7 +402,7 @@ where
     /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// assert_eq!(0u8.dilate_expand::<3>().add_one().undilate(), 1);
@@ -424,7 +424,7 @@ where
     /// This method wraps the output value between 0 and [DILATED_MAX](DilationMethod::DILATED_MAX) (inclusive)
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// assert_eq!(0u8.dilate_expand::<3>().sub_one().undilate(), 255);
@@ -454,7 +454,7 @@ where
     /// provided, you may also use the `+` operator to perform this operation.
     /// 
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     /// 
     /// let value_a: u16 = 123;
@@ -489,7 +489,7 @@ where
     /// provided, you may also use the `+=` operator to perform this operation.
     /// 
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     /// 
     /// let value_a: u16 = 123;
@@ -520,7 +520,7 @@ where
     /// provided, you may also use the `-` operator to perform this operation.
     /// 
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     /// 
     /// let value_a: u16 = 456;
@@ -550,7 +550,7 @@ where
     /// provided, you may also use the `-=` operator to perform this operation.
     /// 
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     /// 
     /// let value_a: u16 = 456;

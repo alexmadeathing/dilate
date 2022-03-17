@@ -55,7 +55,7 @@ use crate::{internal, DilatableType, DilatedInt, DilationMethod};
 /// which is generally less verbose and therefore more user friendly.
 ///
 /// # Examples
-/// ```
+/// ```rust
 /// use dilate::*;
 ///
 /// assert_eq!(Fixed::<u16, 2>::UNDILATED_MAX, 255);
@@ -136,7 +136,7 @@ pub trait DilateFixed: DilatableType {
     /// the table below) to determine whether your value will dilate successfully.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use dilate::*;
     ///
     /// let value: u16 = 0b1101;
