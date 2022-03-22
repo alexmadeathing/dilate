@@ -114,20 +114,19 @@ macro_rules! impl_expand {
     )+}
 }
 
-impl_expand!(u8, (1, u8), (2, u16), (3, u32), (4, u32), (5, u64), (6, u64), (7, u64), (8, u64), (9, u128), (10, u128), (11, u128), (12, u128), (13, u128), (14, u128), (15, u128), (16, u128));
-impl_expand!(u16, (1, u16), (2, u32), (3, u64), (4, u64), (5, u128), (6, u128), (7, u128), (8, u128));
-impl_expand!(u32, (1, u32), (2, u64), (3, u128), (4, u128));
-impl_expand!(u64, (1, u64), (2, u128));
-impl_expand!(u128, (1, u128));
+impl_expand!(u8, (2, u16), (3, u32), (4, u32), (5, u64), (6, u64), (7, u64), (8, u64), (9, u128), (10, u128), (11, u128), (12, u128), (13, u128), (14, u128), (15, u128), (16, u128));
+impl_expand!(u16, (2, u32), (3, u64), (4, u64), (5, u128), (6, u128), (7, u128), (8, u128));
+impl_expand!(u32, (2, u64), (3, u128), (4, u128));
+impl_expand!(u64, (2, u128));
 
 #[cfg(target_pointer_width = "16")]
-impl_expand!(usize, (1, u16), (2, u32), (3, u64), (4, u64), (5, u128), (6, u128), (7, u128), (8, u128));
+impl_expand!(usize, (2, u32), (3, u64), (4, u64), (5, u128), (6, u128), (7, u128), (8, u128));
 
 #[cfg(target_pointer_width = "32")]
-impl_expand!(usize, (1, u32), (2, u64), (3, u128), (4, u128));
+impl_expand!(usize, (2, u64), (3, u128), (4, u128));
 
 #[cfg(target_pointer_width = "64")]
-impl_expand!(usize, (1, u64), (2, u128));
+impl_expand!(usize, (2, u128));
 
 /// A convenience trait for dilating integers using the [Expand] [DilationMethod]
 ///
@@ -170,26 +169,23 @@ pub trait DilateExpand: DilatableType {
     /// amounts `D` and their underlying expanded type. The maximum dilatable value
     /// for Expand dilations is always T::MAX.
     ///
-    /// | T      | D   | Expands To | | T      | D   | Expands To |
-    /// | ------ | --- | ---------- | | ------ | --- | ---------- |
-    /// | `u8`   | 1   | `u8`       | | `u16`  | 1   | `u16`      |
-    /// | `u8`   | 2   | `u16`      | | `u16`  | 2   | `u32`      |
-    /// | `u8`   | 3   | `u32`      | | `u16`  | 3   | `u64`      |
-    /// | `u8`   | 4   | `u32`      | | `u16`  | 4   | `u64`      |
-    /// | `u8`   | 5   | `u64`      | | `u16`  | 5   | `u128`     |
-    /// | `u8`   | 6   | `u64`      | | `u16`  | 6   | `u128`     |
-    /// | `u8`   | 7   | `u64`      | | `u16`  | 7   | `u128`     |
-    /// | `u8`   | 8   | `u64`      | | `u16`  | 8   | `u128`     |
-    /// | `u8`   | 9   | `u128`     | | ...    | ... | ...        |
-    /// | `u8`   | 10  | `u128`     | | `u32`  | 1   | `u32`      |
-    /// | `u8`   | 11  | `u128`     | | `u32`  | 2   | `u64`      |
-    /// | `u8`   | 12  | `u128`     | | `u32`  | 3   | `u128`     |
-    /// | `u8`   | 13  | `u128`     | | `u32`  | 4   | `u128`     |
-    /// | `u8`   | 14  | `u128`     | | ...    | ... | ...        |
-    /// | `u8`   | 15  | `u128`     | | `u64`  | 1   | `u64`      |
-    /// | `u8`   | 16  | `u128`     | | `u64`  | 2   | `u128`     |
-    /// | ...    | ... | ...        | | ...    | ... | ...        |
-    /// | ...    | ... | ...        | | `u128` | 1   | `u128`     |
+    /// | T      | D   | Expands To |     | T      | D   | Expands To |
+    /// | ------ | --- | ---------- | --- | ------ | --- | ---------- |
+    /// | `u8`   | 2   | `u16`      | ... | `u16`  | 2   | `u32`      |
+    /// | `u8`   | 3   | `u32`      | ... | `u16`  | 3   | `u64`      |
+    /// | `u8`   | 4   | `u32`      | ... | `u16`  | 4   | `u64`      |
+    /// | `u8`   | 5   | `u64`      | ... | `u16`  | 5   | `u128`     |
+    /// | `u8`   | 6   | `u64`      | ... | `u16`  | 6   | `u128`     |
+    /// | `u8`   | 7   | `u64`      | ... | `u16`  | 7   | `u128`     |
+    /// | `u8`   | 8   | `u64`      | ... | `u16`  | 8   | `u128`     |
+    /// | `u8`   | 9   | `u128`     | ... | ...    | ... | ...        |
+    /// | `u8`   | 10  | `u128`     | ... | `u32`  | 2   | `u64`      |
+    /// | `u8`   | 11  | `u128`     | ... | `u32`  | 3   | `u128`     |
+    /// | `u8`   | 12  | `u128`     | ... | `u32`  | 4   | `u128`     |
+    /// | `u8`   | 13  | `u128`     | ... | ...    | ... | ...        |
+    /// | `u8`   | 14  | `u128`     | ... | `u64`  | 2   | `u128`     |
+    /// | `u8`   | 15  | `u128`     | ... | ...    | ... | ...        |
+    /// | `u8`   | 16  | `u128`     | ... | ...    | ... | ...        |
     ///
     /// Please note that usize is also supported and its behaviour is the same as the
     /// relevant integer type for your platform. For example, on a 32 bit system,
@@ -218,7 +214,6 @@ mod tests {
     };
 
     // TODO move to a file
-    impl_test_data!(Expand<u8, 01>, 0xff, u8::MAX);
     impl_test_data!(Expand<u8, 02>, 0x5555, u8::MAX);
     impl_test_data!(Expand<u8, 03>, 0x00249249, u8::MAX);
     impl_test_data!(Expand<u8, 04>, 0x11111111, u8::MAX);
@@ -236,7 +231,6 @@ mod tests {
     //    impl_test_data!(Expand<u8, 15>, 0x00000200040008001000200040008001, u8::MAX);
     //    impl_test_data!(Expand<u8, 16>, 0x00010001000100010001000100010001, u8::MAX);
 
-    impl_test_data!(Expand<u16, 1>, 0xffff, u16::MAX);
     impl_test_data!(Expand<u16, 2>, 0x55555555, u16::MAX);
     impl_test_data!(Expand<u16, 3>, 0x0000249249249249, u16::MAX);
     impl_test_data!(Expand<u16, 4>, 0x1111111111111111, u16::MAX);
@@ -245,15 +239,11 @@ mod tests {
     impl_test_data!(Expand<u16, 7>, 0x00000204081020408102040810204081, u16::MAX);
     impl_test_data!(Expand<u16, 8>, 0x01010101010101010101010101010101, u16::MAX);
 
-    impl_test_data!(Expand<u32, 1>, 0xffffffff, u32::MAX);
     impl_test_data!(Expand<u32, 2>, 0x5555555555555555, u32::MAX);
     impl_test_data!(Expand<u32, 3>, 0x00000000249249249249249249249249, u32::MAX);
     impl_test_data!(Expand<u32, 4>, 0x11111111111111111111111111111111, u32::MAX);
 
-    impl_test_data!(Expand<u64, 1>, 0xffffffffffffffff, u64::MAX);
     impl_test_data!(Expand<u64, 2>, 0x55555555555555555555555555555555, u64::MAX);
-
-    impl_test_data!(Expand<u128, 1>, 0xffffffffffffffffffffffffffffffff, u128::MAX);
 
     macro_rules! impl_expand_test_data_usize {
         ($emulated_t:ty, $($d:literal),+) => {$(
@@ -261,11 +251,11 @@ mod tests {
         )+}
     }
     #[cfg(target_pointer_width = "16")]
-    impl_expand_test_data_usize!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_expand_test_data_usize!(u16, 2, 3, 4, 5, 6, 7, 8);
     #[cfg(target_pointer_width = "32")]
-    impl_expand_test_data_usize!(u32, 1, 2, 3, 4);
+    impl_expand_test_data_usize!(u32, 2, 3, 4);
     #[cfg(target_pointer_width = "64")]
-    impl_expand_test_data_usize!(u64, 1, 2);
+    impl_expand_test_data_usize!(u64, 2);
 
     macro_rules! impl_expand_dilated_int_tests {
         ($t:ty, $($d:literal),+) => {$(
@@ -493,16 +483,15 @@ mod tests {
         )+}
     }
     // Technically, u8 can go up to 16 dimensions, but that would double the amount of inline test data
-    impl_expand_dilated_int_tests!(u8, 1, 2, 3, 4, 5, 6, 7, 8);
-    impl_expand_dilated_int_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
-    impl_expand_dilated_int_tests!(u32, 1, 2, 3, 4);
-    impl_expand_dilated_int_tests!(u64, 1, 2);
-    impl_expand_dilated_int_tests!(u128, 1);
+    impl_expand_dilated_int_tests!(u8, 2, 3, 4, 5, 6, 7, 8);
+    impl_expand_dilated_int_tests!(u16, 2, 3, 4, 5, 6, 7, 8);
+    impl_expand_dilated_int_tests!(u32, 2, 3, 4);
+    impl_expand_dilated_int_tests!(u64, 2);
 
     #[cfg(target_pointer_width = "16")]
-    impl_expand_dilated_int_tests!(usize, 1, 2, 3, 4, 5, 6, 7, 8);
+    impl_expand_dilated_int_tests!(usize, 2, 3, 4, 5, 6, 7, 8);
     #[cfg(target_pointer_width = "32")]
-    impl_expand_dilated_int_tests!(usize, 1, 2, 3, 4);
+    impl_expand_dilated_int_tests!(usize, 2, 3, 4);
     #[cfg(target_pointer_width = "64")]
-    impl_expand_dilated_int_tests!(usize, 1, 2);
+    impl_expand_dilated_int_tests!(usize, 2);
 }

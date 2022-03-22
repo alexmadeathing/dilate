@@ -510,7 +510,6 @@ where
     T: DilateExplicit,
 {
     match D {
-        1 => value,
         2 => value.dilate_explicit_d2(),
         3 => value.dilate_explicit_d3(),
         _ => value.dilate_explicit_dn::<D>(),
@@ -523,7 +522,6 @@ where
     T: UndilateExplicit,
 {
     match D {
-        1 => value,
         2 => value.undilate_explicit_d2(),
         3 => value.undilate_explicit_d3(),
         _ => value.undilate_explicit_dn::<D>(),
@@ -694,7 +692,6 @@ mod tests {
     }
 
     // This is kinda insane - TODO move to a file
-    impl_dilation_test_data!(u8, 1, 0xff, 0,);
     impl_dilation_test_data!(u8, 2, 0x55, 0,);
     impl_dilation_test_data!(u8, 3, 0x09, 2, (0, 0x11, 0xC3), (1, 0x05, 0x49));
     impl_dilation_test_data!(u8, 4, 0x11, 1, (0, 0x49, 0x11));
@@ -703,7 +700,6 @@ mod tests {
     impl_dilation_test_data!(u8, 7, 0x01, 1, (0, 0x41, 0x81));
     impl_dilation_test_data!(u8, 8, 0x01, 1, (0, 0x81, 0x01));
 
-    impl_dilation_test_data!(u16, 1, 0xffff, 0,);
     impl_dilation_test_data!(u16, 2, 0x5555, 0,);
     impl_dilation_test_data!(u16, 3, 0x1249, 3, (0, 0x0101, 0xF00F), (1, 0x0011, 0x30C3), (2, 0x0005, 0x9249));
     impl_dilation_test_data!(u16, 4, 0x1111, 2, (0, 0x0201, 0x7007), (1, 0x0049, 0x1111));
@@ -712,7 +708,6 @@ mod tests {
     impl_dilation_test_data!(u16, 7, 0x0081, 1, (0, 0x1041, 0x4081));
     impl_dilation_test_data!(u16, 8, 0x0101, 1, (0, 0x4081, 0x0101));
 
-    impl_dilation_test_data!(u32, 1, 0xffffffff, 0,);
     impl_dilation_test_data!(u32, 2, 0x55555555, 0,);
     impl_dilation_test_data!(u32, 3, 0x09249249, 4, (0, 0x00010001, 0xFF0000FF), (1, 0x00000101, 0x0F00F00F), (2, 0x00000011, 0xC30C30C3), (3, 0x00000005, 0x49249249));
     impl_dilation_test_data!(u32, 4, 0x11111111, 2, (0, 0x00040201, 0x07007007), (1, 0x00000049, 0x11111111));
@@ -721,7 +716,6 @@ mod tests {
     impl_dilation_test_data!(u32, 7, 0x00204081, 1, (0, 0x41041041, 0x10204081));
     impl_dilation_test_data!(u32, 8, 0x01010101, 1, (0, 0x10204081, 0x01010101));
 
-    impl_dilation_test_data!(u64, 1, 0xffffffffffffffff, 0,);
     impl_dilation_test_data!(u64, 2, 0x5555555555555555, 0,);
     impl_dilation_test_data!(u64, 3, 0x1249249249249249, 5, (0, 0x0000000100000001, 0xFFFF00000000FFFF), (1, 0x0000000000010001, 0x00FF0000FF0000FF), (2, 0x0000000000000101, 0xF00F00F00F00F00F), (3, 0x0000000000000011, 0x30C30C30C30C30C3), (4, 0x0000000000000005, 0x9249249249249249));
     impl_dilation_test_data!(u64, 4, 0x1111111111111111, 3, (0, 0x0040000008000001, 0x00001ff0000001ff), (1, 0x0000000000040201, 0x7007007007007007), (2, 0x0000000000000049, 0x1111111111111111));
@@ -730,7 +724,6 @@ mod tests {
     impl_dilation_test_data!(u64, 7, 0x0102040810204081, 2, (0, 0x0000001000000001, 0x0000fc000000003f), (1, 0x0000000041041041, 0x8102040810204081));
     impl_dilation_test_data!(u64, 8, 0x0101010101010101, 2, (0, 0x0002000000000001, 0x7f0000000000007f), (1, 0x0000040810204081, 0x0101010101010101));
 
-    impl_dilation_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff, 0,);
     impl_dilation_test_data!(u128, 2, 0x55555555555555555555555555555555, 0,);
     impl_dilation_test_data!(u128, 3, 0x09249249249249249249249249249249, 6, (0, 0x00000000000000010000000000000001, 0xffffffff0000000000000000ffffffff), (1, 0x00000000000000000000000100000001, 0x0000ffff00000000ffff00000000ffff), (2, 0x00000000000000000000000000010001, 0xff0000ff0000ff0000ff0000ff0000ff), (3, 0x00000000000000000000000000000101, 0x0f00f00f00f00f00f00f00f00f00f00f), (4, 0x00000000000000000000000000000011, 0xc30c30c30c30c30c30c30c30c30c30c3), (5, 0x00000000000000000000000000000005, 0x49249249249249249249249249249249));
     impl_dilation_test_data!(u128, 4, 0x11111111111111111111111111111111, 4, (0, 0x00000000000200000000000000000001, 0xfffff000000000000000000007ffffff), (1, 0x00000000000000000040000008000001, 0x001ff0000001ff0000001ff0000001ff), (2, 0x00000000000000000000000000040201, 0x07007007007007007007007007007007), (3, 0x00000000000000000000000000000049, 0x11111111111111111111111111111111));
@@ -770,7 +763,6 @@ mod tests {
     }
 
     // This is kinda insane - TODO move to a file
-    impl_undilation_test_data!(u8, 1, 0xff, 0, 0,);
     impl_undilation_test_data!(u8, 2, 0x0f, 3, 3, (0, 0x03, 0x66), (1, 0x05, 0x78), (2, 0x11, 0x7F));
     impl_undilation_test_data!(u8, 3, 0x03, 2, 1, (0, 0x15, 0x0e));
     impl_undilation_test_data!(u8, 4, 0x03, 3, 1, (0, 0x49, 0x1e));
@@ -779,7 +771,6 @@ mod tests {
     impl_undilation_test_data!(u8, 7, 0x01, 0, 1, (0, 0x41, 0x01));
     impl_undilation_test_data!(u8, 8, 0x01, 0, 1, (0, 0x81, 0x01));
 
-    impl_undilation_test_data!(u16, 1, 0xffff, 0, 0,);
     impl_undilation_test_data!(u16, 2, 0x00ff, 7, 4, (0, 0x0003, 0x6666), (1, 0x0005, 0x7878), (2, 0x0011, 0x7f80), (3, 0x0101, 0x7fff));
     impl_undilation_test_data!(u16, 3, 0x001f, 8, 2, (0, 0x0015, 0x1c0e), (1, 0x1041, 0x1ff0));
     impl_undilation_test_data!(u16, 4, 0x000f, 9, 2, (0, 0x0249, 0x1e00), (1, 0x1001, 0x1fff));
@@ -788,7 +779,6 @@ mod tests {
     impl_undilation_test_data!(u16, 7, 0x0003, 6, 1, (0, 0x1041, 0x00fe));
     impl_undilation_test_data!(u16, 8, 0x0003, 7, 1, (0, 0x4081, 0x01fe));
 
-    impl_undilation_test_data!(u32, 1, 0xffffffff, 0, 0,);
     impl_undilation_test_data!(u32, 2, 0x0000ffff, 15, 5, (0, 0x00000003, 0x66666666), (1, 0x00000005, 0x78787878), (2, 0x00000011, 0x7F807F80), (3, 0x00000101, 0x7FFF8000), (4, 0x00010001, 0x7fffffff));
     impl_undilation_test_data!(u32, 3, 0x000003ff, 18, 3, (0, 0x00000015, 0x0E070381), (1, 0x00001041, 0x0FF80001), (2, 0x00040001, 0x0FFFFFFE));
     impl_undilation_test_data!(u32, 4, 0x000000ff, 21, 2, (0, 0x00000249, 0x1e001e00), (1, 0x01001001, 0x1fffe000));
@@ -797,7 +787,6 @@ mod tests {
     impl_undilation_test_data!(u32, 7, 0x0000000f, 18, 1, (0, 0x41041041, 0x003f8000));
     impl_undilation_test_data!(u32, 8, 0x0000000f, 21, 1, (0, 0x10204081, 0x01fe0000));
 
-    impl_undilation_test_data!(u64, 1, 0xffffffffffffffff, 0, 0,);
     impl_undilation_test_data!(u64, 2, 0x00000000ffffffff, 31, 6, (0, 0x0000000000000003, 0x6666666666666666), (1, 0x0000000000000005, 0x7878787878787878), (2, 0x0000000000000011, 0x7F807F807F807F80), (3, 0x0000000000000101, 0x7FFF80007FFF8000), (4, 0x0000000000010001, 0x7FFFFFFF80000000), (5, 0x0000000100000001, 0x7fffffffffffffff));
     impl_undilation_test_data!(u64, 3, 0x00000000001fffff, 40, 3, (0, 0x0000000000000015, 0x1c0e070381c0e070), (1, 0x0000000000001041, 0x1ff00003fe00007f), (2, 0x0000001000040001, 0x1ffffffc00000000));
     impl_undilation_test_data!(u64, 4, 0x000000000000ffff, 45, 3, (0, 0x0000000000000249, 0x1e001e001e001e00), (1, 0x0000001001001001, 0x1fffe00000000000), (2, 0x0001000000000001, 0x1fffffffffffffff));
@@ -806,7 +795,6 @@ mod tests {
     impl_undilation_test_data!(u64, 7, 0x00000000000001ff, 48, 2, (0, 0x0000001041041041, 0x01fc0000000000fe), (1, 0x0000040000000001, 0x01ffffffffffff00));
     impl_undilation_test_data!(u64, 8, 0x00000000000000ff, 49, 2, (0, 0x0002040810204081, 0x01fe000000000000), (1, 0x0100000000000001, 0x01ffffffffffffff));
 
-    impl_undilation_test_data!(u128, 1, 0xffffffffffffffffffffffffffffffff, 0, 0,);
     impl_undilation_test_data!(u128, 2, 0x0000000000000000ffffffffffffffff, 063, 7, (0, 0x00000000000000000000000000000003, 0x66666666666666666666666666666666), (1, 0x00000000000000000000000000000005, 0x78787878787878787878787878787878), (2, 0x00000000000000000000000000000011, 0x7f807f807f807f807f807f807f807f80), (3, 0x00000000000000000000000000000101, 0x7fff80007fff80007fff80007fff8000), (4, 0x00000000000000000000000000010001, 0x7fffffff800000007fffffff80000000), (5, 0x00000000000000000000000100000001, 0x7fffffffffffffff8000000000000000), (6, 0x00000000000000010000000000000001, 0x7fffffffffffffffffffffffffffffff));
     impl_undilation_test_data!(u128, 3, 0x0000000000000000000003ffffffffff, 082, 4, (0, 0x00000000000000000000000000000015, 0x0e070381c0e070381c0e070381c0e070), (1, 0x00000000000000000000000000001041, 0x0ff80001ff00003fe00007fc0000ff80), (2, 0x00000000000000000000001000040001, 0x0ffffffe00000000000007ffffff0000), (3, 0x00001000000000000040000000000001, 0x0ffffffffffffffffffff80000000000));
     impl_undilation_test_data!(u128, 4, 0x000000000000000000000000ffffffff, 093, 3, (0, 0x00000000000000000000000000000249, 0x1e001e001e001e001e001e001e001e00), (1, 0x00000000000000000000001001001001, 0x1fffe000000000001fffe00000000000), (2, 0x00000001000000000001000000000001, 0x1fffffffffffffffe000000000000000));
@@ -905,9 +893,9 @@ mod tests {
             }
         )+}
     }
-    const_generation_tests!(u8, 1, 2, 3, 4, 5, 6, 7, 8);
-    const_generation_tests!(u16, 1, 2, 3, 4, 5, 6, 7, 8);
-    const_generation_tests!(u32, 1, 2, 3, 4, 5, 6, 7, 8);
-    const_generation_tests!(u64, 1, 2, 3, 4, 5, 6, 7, 8);
-    const_generation_tests!(u128, 1, 2, 3, 4, 5, 6, 7, 8);
+    const_generation_tests!(u8, 2, 3, 4, 5, 6, 7, 8);
+    const_generation_tests!(u16, 2, 3, 4, 5, 6, 7, 8);
+    const_generation_tests!(u32, 2, 3, 4, 5, 6, 7, 8);
+    const_generation_tests!(u64, 2, 3, 4, 5, 6, 7, 8);
+    const_generation_tests!(u128, 2, 3, 4, 5, 6, 7, 8);
 }

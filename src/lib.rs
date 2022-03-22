@@ -704,18 +704,8 @@ pub(crate) mod shared_test_data {
             // D0 (not used)
             std::vec::Vec::new(),
 
-            // D1 (data should pass through unchanged)
-            std::vec![
-                (0x00000000000000000000000000000000, 0x00000000000000000000000000000000),
-                (0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff),
-                (0x0000000000000000ffffffffffffffff, 0x0000000000000000ffffffffffffffff),
-                (0x00000000ffffffff00000000ffffffff, 0x00000000ffffffff00000000ffffffff),
-                (0x0000ffff0000ffff0000ffff0000ffff, 0x0000ffff0000ffff0000ffff0000ffff),
-                (0x00ff00ff00ff00ff00ff00ff00ff00ff, 0x00ff00ff00ff00ff00ff00ff00ff00ff),
-                (0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f),
-                (0x33333333333333333333333333333333, 0x33333333333333333333333333333333),
-                (0x55555555555555555555555555555555, 0x55555555555555555555555555555555),
-            ],
+            // D1 (not used)
+            std::vec::Vec::new(),
 
             // D2
             std::vec![
@@ -819,7 +809,7 @@ pub(crate) mod shared_test_data {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ],
-        // D1
+        // D1 (not used)
         [
             0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10,
             0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e,
