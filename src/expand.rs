@@ -92,6 +92,16 @@ macro_rules! impl_expand {
             const DILATED_MASK: Self::Dilated = Self::DILATED_MAX * ((1 << $d) - 1);
 
             #[inline]
+            fn to_dilated(undilated: Self::Undilated) -> Self::Dilated {
+                undilated as Self::Dilated
+            }
+
+            #[inline]
+            fn to_undilated(dilated: Self::Dilated) -> Self::Undilated {
+                dilated as Self::Undilated
+            }
+        
+            #[inline]
             fn dilate(value: Self::Undilated) -> DilatedInt<Self> {
                 DilatedInt::<Self>(internal::dilate_implicit::<Self::Dilated, $d>(value as Self::Dilated))
             }
@@ -269,6 +279,7 @@ mod tests {
 
                     type DilationMethodT = Expand<$t, $d>;
                     type DilatedIntT = DilatedInt<DilationMethodT>;
+                    type UndilatedT = <DilationMethodT as DilationMethod>::Undilated;
                     type DilatedT = <DilationMethodT as DilationMethod>::Dilated;
 
                     #[test]
@@ -279,6 +290,30 @@ mod tests {
                     #[test]
                     fn dilated_max_is_correct() {
                         assert_eq!(DilationMethodT::DILATED_MAX, TestData::<DilationMethodT>::dilated_max());
+                    }
+
+                    #[test]
+                    fn to_dilated_is_correct() {
+                        assert_eq!(DilationMethodT::to_dilated(0), 0);
+                        assert_eq!(DilationMethodT::to_dilated(1), 1);
+                        assert_eq!(DilationMethodT::to_dilated(2), 2);
+                        assert_eq!(DilationMethodT::to_dilated(3), 3);
+
+                        // Moving from undilated to dilated should always result in a larger
+                        // integer type, so conversion should not be lossy
+                        assert_eq!(DilationMethodT::to_dilated(UndilatedT::MAX), UndilatedT::MAX as DilatedT);
+                    }
+
+                    #[test]
+                    fn to_undilated_is_correct() {
+                        assert_eq!(DilationMethodT::to_undilated(0), 0);
+                        assert_eq!(DilationMethodT::to_undilated(1), 1);
+                        assert_eq!(DilationMethodT::to_undilated(2), 2);
+                        assert_eq!(DilationMethodT::to_undilated(3), 3);
+
+                        // Moving from dilated to undilated will move from larger integer to
+                        // smaller integer type, so conversion is lossy
+                        assert_eq!(DilationMethodT::to_undilated(DilatedT::MAX), UndilatedT::MAX);
                     }
 
                     #[test]

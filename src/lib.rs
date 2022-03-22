@@ -257,6 +257,24 @@ pub trait DilationMethod: Default + Copy + Eq + Ord {
     /// ```
     const DILATED_MASK: Self::Dilated;
 
+    /// This function casts an undilated integer to a dilated integer
+    /// 
+    /// No dilation process is carried out, this is simply a cast to the
+    /// dilated integer type.
+    fn to_dilated(undilated: Self::Undilated) -> Self::Dilated;
+
+    /// This function converts a dilated integer to an undilated integer
+    /// 
+    /// No undilation process is carried out, this is simply a cast to the
+    /// undilated integer type.
+    /// 
+    /// Additionally, this function is potentially lossy and should be used
+    /// only when you are certain that the conversion is valid or you don't
+    /// mind losing some bits. For more secure number casts, users may
+    /// prefer NumCast from the
+    /// [NumTraits](https://crates.io/crates/num-traits) crate.
+    fn to_undilated(dilated: Self::Dilated) -> Self::Undilated;
+
     /// This function carries out the dilation process, converting the
     /// [DilationMethod::Undilated] value to a [DilatedInt].
     ///
