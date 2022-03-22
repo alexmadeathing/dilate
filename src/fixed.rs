@@ -93,12 +93,12 @@ macro_rules! impl_fixed {
 
             #[inline]
             fn to_dilated(undilated: Self::Undilated) -> Self::Dilated {
-                undilated as Self::Dilated
+                undilated
             }
 
             #[inline]
             fn to_undilated(dilated: Self::Dilated) -> Self::Undilated {
-                dilated as Self::Undilated
+                dilated
             }
         
             #[inline]
