@@ -364,6 +364,14 @@ mod tests {
                     }
 
                     #[test]
+                    fn dilate_and_undilate() {
+                        let max_undilated = (DilationMethodT::UNDILATED_MAX as usize).min(100000);
+                        for i in 0..max_undilated {
+                            assert_eq!(DilationMethodT::dilate(i as UndilatedT).undilate(), i as UndilatedT);
+                        }
+                    }
+
+                    #[test]
                     fn add_is_correct() {
                         let test_cases = [
                             (VALUES[$d][0], VALUES[$d][0], VALUES[$d][0]), // 0 + 0 = 0
