@@ -29,6 +29,18 @@
 				"reveal": "always",
 				"clear": true
 			},
+		},
+		{
+			"type": "shell",
+			"label": "rust: build tests",
+			"command": "cargo",
+			"group": "build",
+			"args": [
+				"test", "--no-run"
+			],
+			"problemMatcher": [
+				"$rustc"
+			]
 		}
 	]
 }
