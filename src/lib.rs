@@ -132,6 +132,8 @@
 //! ```
 //! *Example 3-dilation and undilation usage*
 
+use core::{hash::Hash, fmt::Debug};
+
 mod internal;
 
 /// Contains the Expand dilation method and all supporting items
@@ -148,7 +150,9 @@ pub use crate::fixed::{DilateFixed, Fixed};
 pub trait DilatableType:
     Default +
     Copy +
-    Eq +
+    Ord +
+    Hash +
+    Debug +
     internal::DilateExplicit +
     internal::UndilateExplicit
 {
@@ -169,7 +173,7 @@ impl DilatableType for usize {}
 /// It is possible to construct your own dilation methods by implementing the
 /// [DilationMethod] trait and optionally constructing your own value relative
 /// dilation trait similar to [DilateExpand](expand::DilateExpand).
-pub trait DilationMethod: Default + Copy + Eq + Ord {
+pub trait DilationMethod: Default + Copy + Ord + Hash + Debug {
     /// The external undilated integer type
     type Undilated: DilatableType;
 

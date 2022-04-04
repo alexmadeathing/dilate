@@ -48,8 +48,8 @@ First, link dilate into your project's cargo.toml.
 Check for the latest version at [crates.io](https://crates.io/crates/dilate):
 ```toml
 [dependencies]
-dilate = "0.6.1"
-# dilate = { version = "0.6.1", features = ["std"] } <- If you want std features like Add, Sub and Display
+dilate = "0.6.2"
+# dilate = { version = "0.6.2", features = ["std"] } <- If you want std features like Add, Sub and Display
 ```
 
 Next, import dilate into your project and try out some of the features:
