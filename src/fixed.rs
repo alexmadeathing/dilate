@@ -75,7 +75,7 @@ use crate::{internal, DilatableType, DilatedInt, DilationMethod};
 ///
 /// For more detailed information, see [dilate_fixed()](crate::fixed::DilateFixed::dilate_fixed())
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub struct Fixed<T, const D: usize>(T) // Tuple member never used, but this saves us creating a no_std version of PhantomData
+pub struct Fixed<T, const D: usize>(core::marker::PhantomData<T>)
 where
     T: DilatableType;
 

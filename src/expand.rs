@@ -75,7 +75,7 @@ use crate::{internal, DilatableType, DilatedInt, DilationMethod};
 ///
 /// For more detailed information, see [dilate_expand()](crate::expand::DilateExpand::dilate_expand())
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub struct Expand<T, const D: usize>(T) // Tuple member never used, but this saves us creating a no_std version of PhantomData
+pub struct Expand<T, const D: usize>(core::marker::PhantomData<T>)
 where
     T: DilatableType;
 

@@ -95,7 +95,7 @@ macro_rules! impl_dilate_dn {
             debug_assert!(D > 2, "Generic parameter 'D' must be greater than 2");
             debug_assert!(
                 self <= build_fixed_undilated_max::<Self, D>() as Self,
-                "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+                "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
             );
 
             let mut v = self;
@@ -138,7 +138,7 @@ impl DilateExplicit for u8 {
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [2]
@@ -152,7 +152,7 @@ impl DilateExplicit for u8 {
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [1]
@@ -170,7 +170,7 @@ impl DilateExplicit for u16 {
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [2]
@@ -185,7 +185,7 @@ impl DilateExplicit for u16 {
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [1]
@@ -204,7 +204,7 @@ impl DilateExplicit for u32 {
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [2]
@@ -220,7 +220,7 @@ impl DilateExplicit for u32 {
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [1]
@@ -240,7 +240,7 @@ impl DilateExplicit for u64 {
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [2]
@@ -257,7 +257,7 @@ impl DilateExplicit for u64 {
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [1]
@@ -278,7 +278,7 @@ impl DilateExplicit for u128 {
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [2]
@@ -296,7 +296,7 @@ impl DilateExplicit for u128 {
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         // See citation [1]
@@ -318,7 +318,7 @@ impl DilateExplicit for usize {
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         #[cfg(target_pointer_width = "16")]
@@ -334,7 +334,7 @@ impl DilateExplicit for usize {
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
         );
 
         #[cfg(target_pointer_width = "16")]
