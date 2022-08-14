@@ -352,27 +352,27 @@ mod tests {
 
                     // Unique to Fixed dilations
                     #[test]
-                    #[should_panic(expected = "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)")]
+                    #[should_panic(expected = "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)")]
                     fn dilate_too_large_a_should_panic() {
                         if $d != 1 {
                             DilationMethodT::dilate(TestData::<DilationMethodT>::undilated_max() + 1);
                         } else {
                             // D1 will never panic because the maximum dilatable value is equal to T::MAX
                             // So we'll hack a panic in here
-                            panic!("Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+                            panic!("Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)");
                         }
                     }
 
                     // Unique to Fixed dilations
                     #[test]
-                    #[should_panic(expected = "Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)")]
+                    #[should_panic(expected = "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)")]
                     fn dilate_too_large_b_should_panic() {
                         if $d != 1 {
                             (TestData::<DilationMethodT>::undilated_max() + 1).dilate_fixed::<$d>();
                         } else {
                             // D1 will never panic because the maximum dilatable value is equal to T::MAX
                             // So we'll hack a panic in here
-                            panic!("Attempting to dilate a value exceeds maximum (See DilationMethod::UNDILATED_MAX)");
+                            panic!("Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)");
                         }
                     }
 
