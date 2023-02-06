@@ -43,7 +43,6 @@
 
 #![no_std]
 #![warn(missing_docs)]
-#![warn(rustdoc::missing_doc_code_examples)]
 #![deny(rustdoc::invalid_rust_codeblocks)]
 
 //! A compact, high performance integer dilation library for Rust.
