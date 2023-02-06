@@ -532,20 +532,6 @@ where
 // This assumption avoids the necessity to implement multiple versions of each of the following const functions
 // Instantiations of each const function can therefore safely blind cast to the appropriate type
 
-// Int log is not yet stable, so we need our own version
-// See: https://github.com/rust-lang/rust/issues/70887
-// NOTE - Does not check for parameter validity because the use cases are limited and it's not exposed to the user
-#[inline]
-const fn ilog(base: usize, n: usize) -> usize {
-    let mut r = 0;
-    let mut b = base;
-    while b <= n {
-        b = b * base;
-        r += 1;
-    }
-    r
-}
-
 // Calculates the maximum undilated value that fits into D-dilated T (fixed)
 #[inline]
 pub(crate) const fn build_fixed_undilated_max<T, const D: usize>() -> u128 {
@@ -576,7 +562,7 @@ pub(crate) const fn build_dilated_mask(p_repetitions: usize, q_width: usize) -> 
 #[inline]
 pub(crate) const fn dilate_max_round<T, const D: usize>() -> usize {
     let s = (core::mem::size_of::<T>() * 8) / D;
-    ilog(D - 1, s)
+    s.ilog(D - 1) as usize
 }
 
 // Calculates the D-dilation multiplier for each round
@@ -610,7 +596,7 @@ pub(crate) const fn dilate_mask<T, const D: usize>(round: usize) -> u128 {
 #[inline]
 pub(crate) const fn undilate_max_round<T, const D: usize>() -> usize {
     let s = (core::mem::size_of::<T>() * 8) / D;
-    ilog(D, s)
+    s.ilog(D) as usize
 }
 
 // Calculates the D-undilation multiplier for each round
@@ -663,8 +649,6 @@ mod tests {
 
     use paste::paste;
     use std::marker::PhantomData;
-
-    use super::ilog;
 
     struct DilationTestData<T, const D: usize> {
         marker: PhantomData<T>,
@@ -802,27 +786,6 @@ mod tests {
     impl_undilation_test_data!(u128, 6, 0x000000000000000000000000001fffff, 100, 2, (0, 0x00000000000000000000000002108421, 0x01f80000001f80000001f80000001f80), (1, 0x01000000040000001000000040000001, 0x01ffffffffe000000000000000000000));
     impl_undilation_test_data!(u128, 7, 0x0000000000000000000000000003ffff, 102, 2, (0, 0x00000000000000000000001041041041, 0x00fe00000000007f00000000003f8000), (1, 0x40000000001000000000040000000001, 0x00ffffffffffff800000000000000000));
     impl_undilation_test_data!(u128, 8, 0x0000000000000000000000000000ffff, 105, 2, (0, 0x00000000000000000002040810204081, 0x01fe00000000000001fe000000000000), (1, 0x00010000000000000100000000000001, 0x01fffffffffffffffe00000000000000));
-
-    #[test]
-    fn ilog_is_correct() {
-        for d in 2..8 as usize {
-            // Don't test too many values of i as we may bump up against floating point error
-            for i in 1..64 as usize {
-                let f_log = (i as f32).log(d as f32);
-
-                // To address possible floating point error:
-                //   - Detect the case where f_log is very close to, but slightly below, the actual target value
-                //   - Bump it up by a small amount to force the cast to u128 to be accurate
-                // The actual floating point value is not important, only its floored integer component (implicit in the cast)
-                let f_log = if f_log.ceil() - f_log < std::f32::EPSILON {
-                    f_log + 0.1
-                } else {
-                    f_log
-                };
-                assert_eq!(ilog(d, i), f_log as usize);
-            }
-        }
-    }
 
     macro_rules! const_generation_tests {
         ($t:ty, $($d:literal),+) => {$(
