@@ -100,7 +100,7 @@ For bugs reports, please [submit a bug report](https://github.com/alexmadeathing
 
 For feature requests, please [submit a feature request](https://github.com/alexmadeathing/dilate/issues/new?assignees=&labels=enhancement&template=feature_request.md&title=).
 
-If you have ideas and want to contribute directly, please start by creating an [Idea discussion](https://github.com/alexmadeathing/dilate/discussions/new) in the discussions area. Allow others to comment prior to committing to doing the work. When all parties agree on the design, the work may begin. When your code is ready to be published, please submit a pull request referring back to your Idea discussion. We are unlikely to accept a pull request that has not gone through this process, unless it is for a very small change.
+If you have ideas and want to contribute directly, pull requests are most welcome. If it's a small change just submit a pull request. If you're planning a large or breaking change, please create an [Idea discussion](https://github.com/alexmadeathing/dilate/discussions/new) in the discussions area so that we can reach a concensus.
 
 # References and Acknowledgments
 Many thanks to the authors of the following white papers:
