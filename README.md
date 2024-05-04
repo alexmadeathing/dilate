@@ -1,5 +1,5 @@
 [![Crates.io](https://img.shields.io/crates/d/dilate.svg)](https://crates.io/crates/dilate)
-[![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE.md)
+[![MIT License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE.md)
 [![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=shield)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
 
 # WARNING
