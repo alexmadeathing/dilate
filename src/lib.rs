@@ -1,37 +1,22 @@
-// ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
+// Copyright (c) 2024 Alex Blunt
 //
-// Copyright © 2022 Alex Blunt (alexmadeathing)
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
 //
-// This is anti-capitalist software, released for free use by individuals and
-// organizations that do not operate by capitalist principles.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
-// Permission is hereby granted, free of charge, to any person or organization
-// (the "User") obtaining a copy of this software and associated documentation
-// files (the "Software"), to use, copy, modify, merge, distribute, and/or sell
-// copies of the Software, subject to the following conditions:
-//
-// 1. The above copyright notice and this permission notice shall be included in
-// all copies or modified versions of the Software.
-//
-// 2. The User is one of the following:
-//   a. An individual person, laboring for themselves
-//   b. A non-profit organization
-//   c. An educational institution
-//   d. An organization that seeks shared profit for all of its members, and
-//      allows non-members to set the cost of their labor
-//
-// 3. If the User is an organization with owners, then all owners are workers
-// and all workers are owners with equal equity and/or equal vote.
-//
-// 4. If the User is an organization, then the User is not law enforcement or
-// military, or working for or under either.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY
-// KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-// FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
-// BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-// CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-// SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
 
 // # References and Acknowledgments
 // Many thanks to the authors of the following white papers:
@@ -131,7 +116,7 @@
 //! ```
 //! *Example 3-dilation and undilation usage*
 
-use core::{hash::Hash, fmt::Debug};
+use core::{fmt::Debug, hash::Hash};
 
 mod internal;
 
@@ -147,13 +132,7 @@ pub use crate::fixed::{DilateFixed, Fixed};
 
 /// Denotes an integer type supported by the various dilation and undilation methods
 pub trait DilatableType:
-    Default +
-    Copy +
-    Ord +
-    Hash +
-    Debug +
-    internal::DilateExplicit +
-    internal::UndilateExplicit
+    Default + Copy + Ord + Hash + Debug + internal::DilateExplicit + internal::UndilateExplicit
 {
 }
 impl DilatableType for u8 {}
@@ -261,16 +240,16 @@ pub trait DilationMethod: Default + Copy + Ord + Hash + Debug {
     const DILATED_MASK: Self::Dilated;
 
     /// This function casts an undilated integer to a dilated integer
-    /// 
+    ///
     /// No dilation process is carried out, this is simply a cast to the
     /// dilated integer type.
     fn to_dilated(undilated: Self::Undilated) -> Self::Dilated;
 
     /// This function converts a dilated integer to an undilated integer
-    /// 
+    ///
     /// No undilation process is carried out, this is simply a cast to the
     /// undilated integer type.
-    /// 
+    ///
     /// Additionally, this function is potentially lossy and should be used
     /// only when you are certain that the conversion is valid or you don't
     /// mind losing some bits. For more secure number casts, users may
@@ -463,27 +442,27 @@ where
     }
 
     /// Adds two dilated integers and returns the resultant dilated integer
-    /// 
+    ///
     /// # Wrapping
     /// The arithmetic is implemented in a way which enforces wrapping, so if
     /// the result of the operation would overflow, the resultant value is
     /// wrapped at the limits instead - this is somewhat contrary to the Rust
     /// default of panicking on overflow.
-    /// 
+    ///
     /// # no_std
     /// By default, dilate is `no_std` compliant. When the feature `std` is
     /// provided, you may also use the `+` operator to perform this operation.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use dilate::*;
-    /// 
+    ///
     /// let value_a: u16 = 123;
     /// let value_b: u16 = 456;
-    /// 
+    ///
     /// let dilated_a = value_a.dilate_expand::<3>();
     /// let dilated_b = value_b.dilate_expand::<3>();
-    /// 
+    ///
     /// assert_eq!(dilated_a.add(dilated_b).undilate(), value_a + value_b);
     /// ```
     #[inline]
@@ -498,29 +477,29 @@ where
     }
 
     /// Adds two dilated integers and assigns the result to the left operand
-    /// 
+    ///
     /// # Wrapping
     /// The arithmetic is implemented in a way which enforces wrapping, so if
     /// the result of the operation would overflow, the resultant value is
     /// wrapped at the limits instead - this is somewhat contrary to the Rust
     /// default of panicking on overflow.
-    /// 
+    ///
     /// # no_std
     /// By default, dilate is `no_std` compliant. When the feature `std` is
     /// provided, you may also use the `+=` operator to perform this operation.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use dilate::*;
-    /// 
+    ///
     /// let value_a: u16 = 123;
     /// let value_b: u16 = 456;
-    /// 
+    ///
     /// let mut dilated_a = value_a.dilate_expand::<3>();
     /// let dilated_b = value_b.dilate_expand::<3>();
-    /// 
+    ///
     /// dilated_a.add_assign(dilated_b);
-    /// 
+    ///
     /// assert_eq!(dilated_a.undilate(), value_a + value_b);
     /// ```
     #[inline]
@@ -529,27 +508,27 @@ where
     }
 
     /// Subtracts two dilated integers and returns the resultant dilated integer
-    /// 
+    ///
     /// # Wrapping
     /// The arithmetic is implemented in a way which enforces wrapping, so if
     /// the result of the operation would overflow, the resultant value is
     /// wrapped at the limits instead - this is somewhat contrary to the Rust
     /// default of panicking on overflow.
-    /// 
+    ///
     /// # no_std
     /// By default, dilate is `no_std` compliant. When the feature `std` is
     /// provided, you may also use the `-` operator to perform this operation.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use dilate::*;
-    /// 
+    ///
     /// let value_a: u16 = 456;
     /// let value_b: u16 = 123;
-    /// 
+    ///
     /// let dilated_a = value_a.dilate_expand::<3>();
     /// let dilated_b = value_b.dilate_expand::<3>();
-    /// 
+    ///
     /// assert_eq!(dilated_a.sub(dilated_b).undilate(), value_a - value_b);
     /// ```
     #[inline]
@@ -559,29 +538,29 @@ where
     }
 
     /// Subtracts two dilated integers and assigns the result to the left operand
-    /// 
+    ///
     /// # Wrapping
     /// The arithmetic is implemented in a way which enforces wrapping, so if
     /// the result of the operation would overflow, the resultant value is
     /// wrapped at the limits instead - this is somewhat contrary to the Rust
     /// default of panicking on overflow.
-    /// 
+    ///
     /// # no_std
     /// By default, dilate is `no_std` compliant. When the feature `std` is
     /// provided, you may also use the `-=` operator to perform this operation.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use dilate::*;
-    /// 
+    ///
     /// let value_a: u16 = 456;
     /// let value_b: u16 = 123;
-    /// 
+    ///
     /// let mut dilated_a = value_a.dilate_expand::<3>();
     /// let dilated_b = value_b.dilate_expand::<3>();
-    /// 
+    ///
     /// dilated_a.sub_assign(dilated_b);
-    /// 
+    ///
     /// assert_eq!(dilated_a.undilate(), value_a - value_b);
     /// ```
     #[inline]

@@ -1,5 +1,5 @@
 [![Crates.io](https://img.shields.io/crates/d/dilate.svg)](https://crates.io/crates/dilate)
-[![Anti-Capitalist Software License (v 1.4)](https://img.shields.io/badge/license-Anti--Capitalist%20(v%201.4)-brightgreen)](LICENSE.md)
+[![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE.md)
 [![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=shield)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
 
 # WARNING
