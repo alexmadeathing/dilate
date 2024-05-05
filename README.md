@@ -1,6 +1,7 @@
 [![Crates.io](https://img.shields.io/crates/d/dilate.svg)](https://crates.io/crates/dilate)
-[![MIT License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE.md)
 [![alexmadeathing](https://circleci.com/gh/alexmadeathing/dilate.svg?style=shield)](https://app.circleci.com/pipelines/github/alexmadeathing/dilate?filter=all)
+[![MIT License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE-MIT)
+[![APACHE 2.0 License](https://img.shields.io/badge/license-APACHE%202.0-brightgreen)](LICENSE-APACHE)
 
 # WARNING
 This library is in an alpha stage of development. It is feature complete at a basic level, its interface may be subject to change.
@@ -16,7 +17,7 @@ such [Morton Order](https://en.wikipedia.org/wiki/Z-order_curve) curves.
 The dilation process takes an integer's bit sequence and inserts a number
 of 0 bits (`D - 1`) between each original bit successively. Thus, the
 original bit sequence becomes evenly padded. For example:
-* `0b1101` D2-dilated becomes `0b1010001` (values chosen arbitrarily)
+* `0b1101` D2-dilated becomes `0b1010001`
 * `0b1011` D3-dilated becomes `0b1000001001`
 
 The process of undilation, or 'contraction', does the opposite:
@@ -48,8 +49,8 @@ First, link dilate into your project's cargo.toml.
 Check for the latest version at [crates.io](https://crates.io/crates/dilate):
 ```toml
 [dependencies]
-dilate = "0.6.2"
-# dilate = { version = "0.6.2", features = ["std"] } <- If you want std features like Add, Sub and Display
+dilate = "0.6.3"
+# dilate = { version = "0.6.3", features = ["std"] } <- For std features like Add, Sub and Display
 ```
 
 Next, import dilate into your project and try out some of the features:
@@ -111,7 +112,6 @@ Many thanks to the authors of the following white papers:
 Permission has been explicitly granted to reproduce the agorithms within each paper.
 
 # License
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.
 
-dilate is licensed under the [Anti-Capitalist Software License (v 1.4)](https://github.com/alexmadeathing/dilate/blob/main/LICENSE.md). This means it is free and open source for use by individuals and organizations that do not operate by capitalist principles.
-
-Unless explicitly stated, your contributions will be incorporated under this license.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this crate by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
