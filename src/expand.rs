@@ -76,22 +76,22 @@ macro_rules! impl_expand {
             const DILATED_MAX: Self::Dilated = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
             const DILATED_MASK: Self::Dilated = Self::DILATED_MAX * ((1 << $d) - 1);
 
-            #[inline]
+            #[inline(always)]
             fn to_dilated(undilated: Self::Undilated) -> Self::Dilated {
                 undilated as Self::Dilated
             }
 
-            #[inline]
+            #[inline(always)]
             fn to_undilated(dilated: Self::Dilated) -> Self::Undilated {
                 dilated as Self::Undilated
             }
         
-            #[inline]
+            #[inline(always)]
             fn dilate(value: Self::Undilated) -> DilatedInt<Self> {
                 DilatedInt::<Self>(internal::dilate_implicit::<Self::Dilated, $d>(value as Self::Dilated))
             }
 
-            #[inline]
+            #[inline(always)]
             fn undilate(value: DilatedInt<Self>) -> Self::Undilated {
                 internal::undilate_implicit::<Self::Dilated, $d>(value.0) as Self::Undilated
             }
@@ -193,7 +193,7 @@ pub trait DilateExpand: DilatableType {
     /// usize is interpreted as a u32 and will have the same expansion types as u32.
     ///
     /// See also [Expand<T, D>::dilate()](crate::DilationMethod::dilate())
-    #[inline]
+    #[inline(always)]
     fn dilate_expand<const D: usize>(self) -> DilatedInt<Expand<Self, D>>
     where
         Expand<Self, D>: DilationMethod<Undilated = Self>,

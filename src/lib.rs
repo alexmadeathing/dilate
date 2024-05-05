@@ -361,14 +361,14 @@ where
     ///
     /// # Panics
     /// * Panics if parameter 'dilated' contains bits outside expected positions indicated by [DilationMethod::DILATED_MASK]
-    #[inline]
+    #[inline(always)]
     pub fn new(dilated: DM::Dilated) -> Self {
         debug_assert!(dilated.bit_and(DM::DILATED_MAX.bit_not()) == DM::Dilated::zero(), "Parameter 'dilated' contains bits outside expected positions indicated by DilationMethod::DILATED_MAX");
         Self(dilated)
     }
 
     /// Access dilated value
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn value(&self) -> DM::Dilated {
         self.0
@@ -389,7 +389,7 @@ where
     /// ```
     ///
     /// See also [DilationMethod::undilate()]
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn undilate(self) -> DM::Undilated {
         DM::undilate(self)
@@ -409,7 +409,7 @@ where
     /// assert_eq!(127u8.dilate_expand::<3>().add_one().undilate(), 128);
     /// assert_eq!(255u8.dilate_expand::<3>().add_one().undilate(), 0);
     /// ```
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn add_one(self) -> Self {
         Self(
@@ -431,7 +431,7 @@ where
     /// assert_eq!(127u8.dilate_expand::<3>().sub_one().undilate(), 126);
     /// assert_eq!(255u8.dilate_expand::<3>().sub_one().undilate(), 254);
     /// ```
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn sub_one(self) -> Self {
         Self(
@@ -465,7 +465,7 @@ where
     ///
     /// assert_eq!(dilated_a.add(dilated_b).undilate(), value_a + value_b);
     /// ```
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn add(self, rhs: Self) -> Self {
         Self(
@@ -502,7 +502,7 @@ where
     ///
     /// assert_eq!(dilated_a.undilate(), value_a + value_b);
     /// ```
-    #[inline]
+    #[inline(always)]
     pub fn add_assign(&mut self, rhs: Self) {
         *self = self.add(rhs);
     }
@@ -531,7 +531,7 @@ where
     ///
     /// assert_eq!(dilated_a.sub(dilated_b).undilate(), value_a - value_b);
     /// ```
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn sub(self, rhs: Self) -> Self {
         Self(self.0.sub_wrapping(rhs.0).bit_and(DM::DILATED_MAX))
@@ -563,7 +563,7 @@ where
     ///
     /// assert_eq!(dilated_a.undilate(), value_a - value_b);
     /// ```
-    #[inline]
+    #[inline(always)]
     pub fn sub_assign(&mut self, rhs: Self) {
         *self = self.sub(rhs);
     }
@@ -587,7 +587,7 @@ mod std_impls {
         DM: DilationMethod,
         DM::Dilated: fmt::Display,
     {
-        #[inline]
+        #[inline(always)]
         #[must_use]
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "{}", self.value())
@@ -600,7 +600,7 @@ mod std_impls {
     {
         type Output = Self;
 
-        #[inline]
+        #[inline(always)]
         #[must_use]
         fn add(self, rhs: Self) -> Self::Output {
             self.add(rhs)
@@ -611,7 +611,7 @@ mod std_impls {
     where
         DM: DilationMethod,
     {
-        #[inline]
+        #[inline(always)]
         fn add_assign(&mut self, rhs: Self) {
             self.add_assign(rhs);
         }
@@ -623,7 +623,7 @@ mod std_impls {
     {
         type Output = Self;
 
-        #[inline]
+        #[inline(always)]
         #[must_use]
         fn sub(self, rhs: Self) -> Self::Output {
             self.sub(rhs)
@@ -634,7 +634,7 @@ mod std_impls {
     where
         DM: DilationMethod,
     {
-        #[inline]
+        #[inline(always)]
         fn sub_assign(&mut self, rhs: Self) {
             self.sub_assign(rhs);
         }
@@ -658,12 +658,12 @@ pub(crate) mod shared_test_data {
     macro_rules! impl_test_data {
         ($method_t:ty, $dil_max:expr, $con_max:expr) => {
             impl TestData<$method_t> {
-                #[inline]
+                #[inline(always)]
                 fn dilated_max() -> <$method_t as DilationMethod>::Dilated {
                     $dil_max
                 }
 
-                #[inline]
+                #[inline(always)]
                 fn undilated_max() -> <$method_t as DilationMethod>::Undilated {
                     $con_max
                 }

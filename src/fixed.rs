@@ -76,22 +76,22 @@ macro_rules! impl_fixed {
             const DILATED_MAX: Self::Dilated = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
             const DILATED_MASK: Self::Dilated = Self::DILATED_MAX * ((1 << $d) - 1);
 
-            #[inline]
+            #[inline(always)]
             fn to_dilated(undilated: Self::Undilated) -> Self::Dilated {
                 undilated
             }
 
-            #[inline]
+            #[inline(always)]
             fn to_undilated(dilated: Self::Dilated) -> Self::Undilated {
                 dilated
             }
         
-            #[inline]
+            #[inline(always)]
             fn dilate(value: Self::Undilated) -> DilatedInt<Self> {
                 DilatedInt::<Self>(internal::dilate_implicit::<Self::Dilated, $d>(value))
             }
 
-            #[inline]
+            #[inline(always)]
             fn undilate(value: DilatedInt<Self>) -> Self::Undilated {
                 internal::undilate_implicit::<Self::Dilated, $d>(value.0)
             }
@@ -215,7 +215,7 @@ pub trait DilateFixed: DilatableType {
     /// usize is interpreted as a u32 and will have the same max dilatable value as u32.
     ///
     /// See also [Fixed<T, D>::dilate()](crate::DilationMethod::dilate())
-    #[inline]
+    #[inline(always)]
     fn dilate_fixed<const D: usize>(self) -> DilatedInt<Fixed<Self, D>>
     where
         Fixed<Self, D>: DilationMethod<Undilated = Self>,

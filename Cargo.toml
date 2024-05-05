@@ -19,3 +19,8 @@ std = []
 
 [dev-dependencies]
 paste = "1.0.6" # For generation of multi-dimensional, multi-type, test names
+criterion = { version = "0.5.1", features = ["html_reports"] }
+
+[[bench]]
+name = "benches"
+harness = false
