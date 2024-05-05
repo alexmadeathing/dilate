@@ -1,8 +1,9 @@
 [package]
 name = "dilate"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2021"
-license-file = "LICENSE.md"
+rust-version = "1.70"
+license = "MIT OR Apache-2.0"
 description = "A compact, high performance integer dilation library for Rust."
 homepage = "https://github.com/alexmadeathing/dilate"
 repository = "https://github.com/alexmadeathing/dilate"
@@ -17,5 +18,4 @@ std = []
 [dependencies]
 
 [dev-dependencies]
-lazy_static = "1.4.0" # For test data
 paste = "1.0.6" # For generation of multi-dimensional, multi-type, test names

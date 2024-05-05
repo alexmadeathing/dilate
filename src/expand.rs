@@ -154,23 +154,39 @@ pub trait DilateExpand: DilatableType {
     /// amounts `D` and their underlying expanded type. The maximum dilatable value
     /// for Expand dilations is always T::MAX.
     ///
-    /// | T      | D   | Expands To |     | T      | D   | Expands To |
-    /// | ------ | --- | ---------- | --- | ------ | --- | ---------- |
-    /// | `u8`   | 2   | `u16`      | ... | `u16`  | 2   | `u32`      |
-    /// | `u8`   | 3   | `u32`      | ... | `u16`  | 3   | `u64`      |
-    /// | `u8`   | 4   | `u32`      | ... | `u16`  | 4   | `u64`      |
-    /// | `u8`   | 5   | `u64`      | ... | `u16`  | 5   | `u128`     |
-    /// | `u8`   | 6   | `u64`      | ... | `u16`  | 6   | `u128`     |
-    /// | `u8`   | 7   | `u64`      | ... | `u16`  | 7   | `u128`     |
-    /// | `u8`   | 8   | `u64`      | ... | `u16`  | 8   | `u128`     |
-    /// | `u8`   | 9   | `u128`     | ... | ...    | ... | ...        |
-    /// | `u8`   | 10  | `u128`     | ... | `u32`  | 2   | `u64`      |
-    /// | `u8`   | 11  | `u128`     | ... | `u32`  | 3   | `u128`     |
-    /// | `u8`   | 12  | `u128`     | ... | `u32`  | 4   | `u128`     |
-    /// | `u8`   | 13  | `u128`     | ... | ...    | ... | ...        |
-    /// | `u8`   | 14  | `u128`     | ... | `u64`  | 2   | `u128`     |
-    /// | `u8`   | 15  | `u128`     | ... | ...    | ... | ...        |
-    /// | `u8`   | 16  | `u128`     | ... | ...    | ... | ...        |
+    /// | T      | D   | Expands To |
+    /// | ------ | --- | ---------- |
+    /// | `u8`   | 2   | `u16`      |
+    /// | `u8`   | 3   | `u32`      |
+    /// | `u8`   | 4   | `u32`      |
+    /// | `u8`   | 5   | `u64`      |
+    /// | `u8`   | 6   | `u64`      |
+    /// | `u8`   | 7   | `u64`      |
+    /// | `u8`   | 8   | `u64`      |
+    /// | `u8`   | 9   | `u128`     |
+    /// | `u8`   | 10  | `u128`     |
+    /// | `u8`   | 11  | `u128`     |
+    /// | `u8`   | 12  | `u128`     |
+    /// | `u8`   | 13  | `u128`     |
+    /// | `u8`   | 14  | `u128`     |
+    /// | `u8`   | 15  | `u128`     |
+    /// | `u8`   | 16  | `u128`     |
+    /// | ...    | ... | ...        |
+    /// | `u16`  | 2   | `u32`      |
+    /// | `u16`  | 3   | `u64`      |
+    /// | `u16`  | 4   | `u64`      |
+    /// | `u16`  | 5   | `u128`     |
+    /// | `u16`  | 6   | `u128`     |
+    /// | `u16`  | 7   | `u128`     |
+    /// | `u16`  | 8   | `u128`     |
+    /// | ...    | ... | ...        |
+    /// | `u32`  | 2   | `u64`      |
+    /// | `u32`  | 3   | `u128`     |
+    /// | `u32`  | 4   | `u128`     |
+    /// | ...    | ... | ...        |
+    /// | `u64`  | 2   | `u128`     |
+    /// | ...    | ... | ...        |
+    /// | ...    | ... | ...        |
     ///
     /// Please note that usize is also supported and its behaviour is the same as the
     /// relevant integer type for your platform. For example, on a 32 bit system,
@@ -248,7 +264,7 @@ mod tests {
                 mod [< expand_ $t _d $d >] {
                     extern crate std;
 
-                    use crate::shared_test_data::{TestData, VALUES, DILATION_TEST_CASES};
+                    use crate::shared_test_data::{TestData, VALUES, dilation_test_cases};
                     use crate::{DilationMethod, DilatedInt};
                     use super::super::{Expand, DilateExpand};
 
@@ -325,8 +341,8 @@ mod tests {
                     #[test]
                     fn dilate_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
-                        for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
-                            for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
+                        for (undilated_a, dilated_a) in dilation_test_cases($d).iter() {
+                            for (undilated_b, dilated_b) in dilation_test_cases($d).iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t;
                                 let dilated = (*dilated_a ^ *dilated_b) as DilatedT & TestData::<DilationMethodT>::dilated_max();
                                 assert_eq!(DilationMethodT::dilate(undilated), DilatedInt::<DilationMethodT>(dilated));
@@ -338,8 +354,8 @@ mod tests {
                     #[test]
                     fn undilate_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
-                        for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
-                            for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
+                        for (undilated_a, dilated_a) in dilation_test_cases($d).iter() {
+                            for (undilated_b, dilated_b) in dilation_test_cases($d).iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t;
                                 let dilated = (*dilated_a ^ *dilated_b) as DilatedT & TestData::<DilationMethodT>::dilated_max();
                                 assert_eq!(DilationMethodT::undilate(DilatedInt::<DilationMethodT>(dilated)), undilated);

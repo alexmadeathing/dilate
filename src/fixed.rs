@@ -148,39 +148,67 @@ pub trait DilateFixed: DilatableType {
     /// amounts `D`, and the maximum dilatable value. The source integer and the
     /// internal dilated integer types are the same for Fixed dilations.
     ///
-    /// | T      | D   | Max Value    |     | T      | D   | Max Value                            |
-    /// | ------ | --- | ------------ | --- | ------ | --- | ------------------------------------ |
-    /// | `u8`   | 2   | `0x0f`       | ... | `u64`  | 2   | `0x00000000ffffffff`                 |
-    /// | `u8`   | 3   | `0x03`       | ... | `u64`  | 3   | `0x00000000001fffff`                 |
-    /// | `u8`   | 4   | `0x03`       | ... | `u64`  | 4   | `0x000000000000ffff`                 |
-    /// | ...    | ... | ...          | ... | `u64`  | 5   | `0x0000000000000fff`                 |
-    /// | `u16`  | 2   | `0x00ff`     | ... | `u64`  | 6   | `0x00000000000003ff`                 |
-    /// | `u16`  | 3   | `0x001f`     | ... | `u64`  | 7   | `0x00000000000001ff`                 |
-    /// | `u16`  | 4   | `0x000f`     | ... | `u64`  | 8   | `0x00000000000000ff`                 |
-    /// | `u16`  | 5   | `0x0007`     | ... | `u64`  | 9   | `0x000000000000007f`                 |
-    /// | `u16`  | 6   | `0x0003`     | ... | `u64`  | 10  | `0x000000000000003f`                 |
-    /// | `u16`  | 7   | `0x0003`     | ... | `u64`  | 11  | `0x000000000000001f`                 |
-    /// | `u16`  | 8   | `0x0003`     | ... | `u64`  | 12  | `0x000000000000001f`                 |
-    /// | ...    | ... | ...          | ... | `u64`  | 13  | `0x000000000000000f`                 |
-    /// | `u32`  | 2   | `0x0000ffff` | ... | `u64`  | 14  | `0x000000000000000f`                 |
-    /// | `u32`  | 3   | `0x000003ff` | ... | `u64`  | 15  | `0x000000000000000f`                 |
-    /// | `u32`  | 4   | `0x000000ff` | ... | `u64`  | 16  | `0x000000000000000f`                 |
-    /// | `u32`  | 5   | `0x0000003f` | ... | ...    | ... | ...                                  |
-    /// | `u32`  | 6   | `0x0000001f` | ... | `u128` | 2   | `0x0000000000000000ffffffffffffffff` |
-    /// | `u32`  | 7   | `0x0000000f` | ... | `u128` | 3   | `0x0000000000000000000003ffffffffff` |
-    /// | `u32`  | 8   | `0x0000000f` | ... | `u128` | 4   | `0x000000000000000000000000ffffffff` |
-    /// | `u32`  | 9   | `0x00000007` | ... | `u128` | 5   | `0x00000000000000000000000001ffffff` |
-    /// | `u32`  | 10  | `0x00000007` | ... | `u128` | 6   | `0x000000000000000000000000001fffff` |
-    /// | `u32`  | 11  | `0x00000003` | ... | `u128` | 7   | `0x0000000000000000000000000003ffff` |
-    /// | `u32`  | 12  | `0x00000003` | ... | `u128` | 8   | `0x0000000000000000000000000000ffff` |
-    /// | `u32`  | 13  | `0x00000003` | ... | `u128` | 9   | `0x00000000000000000000000000003fff` |
-    /// | `u32`  | 14  | `0x00000003` | ... | `u128` | 10  | `0x00000000000000000000000000000fff` |
-    /// | `u32`  | 15  | `0x00000003` | ... | `u128` | 11  | `0x000000000000000000000000000007ff` |
-    /// | `u32`  | 16  | `0x00000003` | ... | `u128` | 12  | `0x000000000000000000000000000003ff` |
-    /// | ...    | ... | ...          | ... | `u128` | 13  | `0x000000000000000000000000000001ff` |
-    /// | ...    | ... | ...          | ... | `u128` | 14  | `0x000000000000000000000000000001ff` |
-    /// | ...    | ... | ...          | ... | `u128` | 15  | `0x000000000000000000000000000000ff` |
-    /// | ...    | ... | ...          | ... | `u128` | 16  | `0x000000000000000000000000000000ff` |
+    /// | T      | D   | Max Value                            |
+    /// | ------ | --- | ------------------------------------ |
+    /// | `u8`   | 2   | `0x0f`                               |
+    /// | `u8`   | 3   | `0x03`                               |
+    /// | `u8`   | 4   | `0x03`                               |
+    /// | ...    | ... | ...                                  |
+    /// | `u16`  | 2   | `0x00ff`                             |
+    /// | `u16`  | 3   | `0x001f`                             |
+    /// | `u16`  | 4   | `0x000f`                             |
+    /// | `u16`  | 5   | `0x0007`                             |
+    /// | `u16`  | 6   | `0x0003`                             |
+    /// | `u16`  | 7   | `0x0003`                             |
+    /// | `u16`  | 8   | `0x0003`                             |
+    /// | ...    | ... | ...                                  |
+    /// | `u32`  | 2   | `0x0000ffff`                         |
+    /// | `u32`  | 3   | `0x000003ff`                         |
+    /// | `u32`  | 4   | `0x000000ff`                         |
+    /// | `u32`  | 5   | `0x0000003f`                         |
+    /// | `u32`  | 6   | `0x0000001f`                         |
+    /// | `u32`  | 7   | `0x0000000f`                         |
+    /// | `u32`  | 8   | `0x0000000f`                         |
+    /// | `u32`  | 9   | `0x00000007`                         |
+    /// | `u32`  | 10  | `0x00000007`                         |
+    /// | `u32`  | 11  | `0x00000003`                         |
+    /// | `u32`  | 12  | `0x00000003`                         |
+    /// | `u32`  | 13  | `0x00000003`                         |
+    /// | `u32`  | 14  | `0x00000003`                         |
+    /// | `u32`  | 15  | `0x00000003`                         |
+    /// | `u32`  | 16  | `0x00000003`                         |
+    /// | ...    | ... | ...                                  |
+    /// | `u64`  | 2   | `0x00000000ffffffff`                 |
+    /// | `u64`  | 3   | `0x00000000001fffff`                 |
+    /// | `u64`  | 4   | `0x000000000000ffff`                 |
+    /// | `u64`  | 5   | `0x0000000000000fff`                 |
+    /// | `u64`  | 6   | `0x00000000000003ff`                 |
+    /// | `u64`  | 7   | `0x00000000000001ff`                 |
+    /// | `u64`  | 8   | `0x00000000000000ff`                 |
+    /// | `u64`  | 9   | `0x000000000000007f`                 |
+    /// | `u64`  | 10  | `0x000000000000003f`                 |
+    /// | `u64`  | 11  | `0x000000000000001f`                 |
+    /// | `u64`  | 12  | `0x000000000000001f`                 |
+    /// | `u64`  | 13  | `0x000000000000000f`                 |
+    /// | `u64`  | 14  | `0x000000000000000f`                 |
+    /// | `u64`  | 15  | `0x000000000000000f`                 |
+    /// | `u64`  | 16  | `0x000000000000000f`                 |
+    /// | ...    | ... | ...                                  |
+    /// | `u128` | 2   | `0x0000000000000000ffffffffffffffff` |
+    /// | `u128` | 3   | `0x0000000000000000000003ffffffffff` |
+    /// | `u128` | 4   | `0x000000000000000000000000ffffffff` |
+    /// | `u128` | 5   | `0x00000000000000000000000001ffffff` |
+    /// | `u128` | 6   | `0x000000000000000000000000001fffff` |
+    /// | `u128` | 7   | `0x0000000000000000000000000003ffff` |
+    /// | `u128` | 8   | `0x0000000000000000000000000000ffff` |
+    /// | `u128` | 9   | `0x00000000000000000000000000003fff` |
+    /// | `u128` | 10  | `0x00000000000000000000000000000fff` |
+    /// | `u128` | 11  | `0x000000000000000000000000000007ff` |
+    /// | `u128` | 12  | `0x000000000000000000000000000003ff` |
+    /// | `u128` | 13  | `0x000000000000000000000000000001ff` |
+    /// | `u128` | 14  | `0x000000000000000000000000000001ff` |
+    /// | `u128` | 15  | `0x000000000000000000000000000000ff` |
+    /// | `u128` | 16  | `0x000000000000000000000000000000ff` |
     ///
     /// Please note that usize is also supported and its behaviour is the same as the
     /// relevant integer type for your platform. For example, on a 32 bit system,
@@ -263,7 +291,7 @@ mod tests {
                 mod [< fixed_ $t _d $d >] {
                     extern crate std;
 
-                    use crate::shared_test_data::{TestData, VALUES, DILATION_TEST_CASES};
+                    use crate::shared_test_data::{TestData, VALUES, dilation_test_cases};
                     use crate::{DilationMethod, DilatedInt};
                     use super::super::{Fixed, DilateFixed};
 
@@ -364,8 +392,8 @@ mod tests {
                     #[test]
                     fn dilate_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
-                        for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
-                            for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
+                        for (undilated_a, dilated_a) in dilation_test_cases($d).iter() {
+                            for (undilated_b, dilated_b) in dilation_test_cases($d).iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<DilationMethodT>::undilated_max();
                                 let dilated = (*dilated_a ^ *dilated_b) as DilatedT & TestData::<DilationMethodT>::dilated_max();
                                 assert_eq!(DilationMethod::dilate(undilated), DilatedInt::<DilationMethodT>(dilated));
@@ -377,8 +405,8 @@ mod tests {
                     #[test]
                     fn undilate_is_correct() {
                         // To create many more valid test cases, we doubly iterate all of them and xor the values
-                        for (undilated_a, dilated_a) in DILATION_TEST_CASES[$d].iter() {
-                            for (undilated_b, dilated_b) in DILATION_TEST_CASES[$d].iter() {
+                        for (undilated_a, dilated_a) in dilation_test_cases($d).iter() {
+                            for (undilated_b, dilated_b) in dilation_test_cases($d).iter() {
                                 let undilated = (*undilated_a ^ *undilated_b) as $t & TestData::<DilationMethodT>::undilated_max();
                                 let dilated = (*dilated_a ^ *dilated_b) as DilatedT & TestData::<DilationMethodT>::dilated_max();
                                 assert_eq!(DilationMethod::undilate(DilatedInt::<DilationMethodT>(dilated)), undilated);
