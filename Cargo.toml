@@ -2,6 +2,7 @@
 name = "dilate"
 version = "0.6.3"
 edition = "2021"
+rust-version = "1.67"
 license = "MIT OR Apache-2.0"
 description = "A compact, high performance integer dilation library for Rust."
 homepage = "https://github.com/alexmadeathing/dilate"
