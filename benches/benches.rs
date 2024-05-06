@@ -64,8 +64,10 @@ fn benchmark_dilate_undilate<FDil: Fn(usize) -> usize, FUndil: Fn(usize) -> usiz
         format!("{}d dilate: {}", d, crate_name).as_str(),
         |b| {
             b.iter(|| {
-                for i in 0..=UNDILATED_MAX {
+                let mut i = 0;
+                while i <= UNDILATED_MAX {
                     dilate(i);
+                    i += 1;
                 }
             })
         },
@@ -75,8 +77,10 @@ fn benchmark_dilate_undilate<FDil: Fn(usize) -> usize, FUndil: Fn(usize) -> usiz
         format!("{}d undilate: {}", d, crate_name).as_str(),
         |b| {
             b.iter(|| {
-                for i in 0..=UNDILATED_MAX {
+                let mut i = 0;
+                while i <= UNDILATED_MAX {
                     undilate(dilated_values[i]);
+                    i += 1;
                 }
             })
         },

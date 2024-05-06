@@ -1,23 +1,3 @@
-// Copyright (c) 2024 Alex Blunt
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to
-// deal in the Software without restriction, including without limitation the
-// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-// sell copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-// IN THE SOFTWARE.
-
 // # References and Acknowledgments
 // Many thanks to the authors of the following white papers:
 // * [1] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
@@ -119,11 +99,10 @@
 use core::{fmt::Debug, hash::Hash};
 
 mod internal;
+use internal::Sealed;
 
 /// Contains the Expand dilation method and all supporting items
 pub mod expand;
-use internal::NumTraits;
-
 pub use crate::expand::{DilateExpand, Expand};
 
 /// Contains the Fixed dilation method and all supporting items
@@ -131,10 +110,9 @@ pub mod fixed;
 pub use crate::fixed::{DilateFixed, Fixed};
 
 /// Denotes an integer type supported by the various dilation and undilation methods
-pub trait DilatableType:
-    Default + Copy + Ord + Hash + Debug + internal::DilateExplicit + internal::UndilateExplicit
-{
-}
+#[allow(private_bounds)]
+pub trait DilatableType: Sealed { }
+
 impl DilatableType for u8 {}
 impl DilatableType for u16 {}
 impl DilatableType for u32 {}
@@ -151,7 +129,7 @@ impl DilatableType for usize {}
 /// It is possible to construct your own dilation methods by implementing the
 /// [DilationMethod] trait and optionally constructing your own value relative
 /// dilation trait similar to [DilateExpand](expand::DilateExpand).
-pub trait DilationMethod: Default + Copy + Ord + Hash + Debug {
+pub trait DilationMethod {
     /// The external undilated integer type
     type Undilated: DilatableType;
 
@@ -257,45 +235,12 @@ pub trait DilationMethod: Default + Copy + Ord + Hash + Debug {
     /// [NumTraits](https://crates.io/crates/num-traits) crate.
     fn to_undilated(dilated: Self::Dilated) -> Self::Undilated;
 
-    /// This function carries out the dilation process, converting the
-    /// [DilationMethod::Undilated] value to a [DilatedInt].
-    ///
-    /// This function is exposed as a secondary interface and you may prefer
-    /// the more human friendly trait methods: [DilateExpand::dilate_expand()]
-    /// and [DilateFixed::dilate_fixed()].
-    ///
-    /// # Examples
-    /// ```rust
-    /// use dilate::*;
-    ///
-    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>::new(0b01010001));
-    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101).value(), 0b01010001);
-    ///
-    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101), DilatedInt::<Fixed<u16, 3>>::new(0b001001000001));
-    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101).value(), 0b001001000001);
-    /// ```
-    ///
-    /// See also [DilateExpand::dilate_expand()], [DilateFixed::dilate_fixed()]
+    // This is needed here because we can't yet call internal::Sealed::dilate::<DM::D>() from DilateFixed/DilateExpand
+    #[doc(hidden)]
     fn dilate(value: Self::Undilated) -> DilatedInt<Self>;
 
-    /// This function carries out the undilation process, converting a
-    /// [DilatedInt] back to an [DilationMethod::Undilated] value.
-    ///
-    /// This function is exposed as a secondary interface and you may prefer
-    /// the more human friendly method: [DilatedInt::undilate()].
-    ///
-    /// # Examples
-    /// ```rust
-    /// use dilate::*;
-    ///
-    /// let dilated = Expand::<u8, 2>::dilate(0b1101);
-    /// assert_eq!(Expand::<u8, 2>::undilate(dilated), 0b1101);
-    ///
-    /// let dilated = Fixed::<u16, 3>::dilate(0b1101);
-    /// assert_eq!(Fixed::<u16, 3>::undilate(dilated), 0b1101);
-    /// ```
-    ///
-    /// See also [DilatedInt::undilate()]
+    // This is needed here because we can't yet call internal::Sealed::undilate::<DM::D>() from DilateInt
+    #[doc(hidden)]
     fn undilate(value: DilatedInt<Self>) -> Self::Undilated;
 }
 
@@ -346,11 +291,11 @@ pub trait DilationMethod: Default + Copy + Ord + Hash + Debug {
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DilatedInt<DM>(DM::Dilated)
 where
-    DM: DilationMethod;
+    DM: DilationMethod + ?Sized;
 
 impl<DM> DilatedInt<DM>
 where
-    DM: DilationMethod,
+    DM: DilationMethod + ?Sized,
 {
     /// Create new dilated int from known dilated value
     ///
@@ -361,15 +306,16 @@ where
     ///
     /// # Panics
     /// * Panics if parameter 'dilated' contains bits outside expected positions indicated by [DilationMethod::DILATED_MASK]
+    #[must_use]
     #[inline(always)]
     pub fn new(dilated: DM::Dilated) -> Self {
-        debug_assert!(dilated.bit_and(DM::DILATED_MAX.bit_not()) == DM::Dilated::zero(), "Parameter 'dilated' contains bits outside expected positions indicated by DilationMethod::DILATED_MAX");
+        debug_assert!(dilated.is_valid_dilated_value(DM::DILATED_MAX), "Parameter 'dilated' contains bits outside expected positions indicated by DilationMethod::DILATED_MAX");
         Self(dilated)
     }
 
     /// Access dilated value
-    #[inline(always)]
     #[must_use]
+    #[inline(always)]
     pub fn value(&self) -> DM::Dilated {
         self.0
     }
@@ -389,8 +335,8 @@ where
     /// ```
     ///
     /// See also [DilationMethod::undilate()]
-    #[inline(always)]
     #[must_use]
+    #[inline(always)]
     pub fn undilate(self) -> DM::Undilated {
         DM::undilate(self)
     }
@@ -412,11 +358,7 @@ where
     #[inline(always)]
     #[must_use]
     pub fn add_one(self) -> Self {
-        Self(
-            self.0
-                .sub_wrapping(DM::DILATED_MAX)
-                .bit_and(DM::DILATED_MAX),
-        )
+        Self(self.0.add_one(DM::DILATED_MAX))
     }
 
     /// Subtracts the value 1 from the dilated int and returns the result
@@ -434,11 +376,7 @@ where
     #[inline(always)]
     #[must_use]
     pub fn sub_one(self) -> Self {
-        Self(
-            self.0
-                .sub_wrapping(DM::Dilated::one())
-                .bit_and(DM::DILATED_MAX),
-        )
+        Self(self.0.sub_one(DM::DILATED_MAX))
     }
 
     /// Adds two dilated integers and returns the resultant dilated integer
@@ -468,12 +406,7 @@ where
     #[inline(always)]
     #[must_use]
     pub fn add(self, rhs: Self) -> Self {
-        Self(
-            self.0
-                .add_wrapping(DM::DILATED_MAX.bit_not())
-                .add_wrapping(rhs.0)
-                .bit_and(DM::DILATED_MAX),
-        )
+        Self(self.0.add(rhs.0, DM::DILATED_MAX))
     }
 
     /// Adds two dilated integers and assigns the result to the left operand
@@ -504,7 +437,7 @@ where
     /// ```
     #[inline(always)]
     pub fn add_assign(&mut self, rhs: Self) {
-        *self = self.add(rhs);
+        self.0 = self.0.add(rhs.0, DM::DILATED_MAX);
     }
 
     /// Subtracts two dilated integers and returns the resultant dilated integer
@@ -534,7 +467,7 @@ where
     #[inline(always)]
     #[must_use]
     pub fn sub(self, rhs: Self) -> Self {
-        Self(self.0.sub_wrapping(rhs.0).bit_and(DM::DILATED_MAX))
+        Self(self.0.sub(rhs.0, DM::DILATED_MAX))
     }
 
     /// Subtracts two dilated integers and assigns the result to the left operand
@@ -565,7 +498,7 @@ where
     /// ```
     #[inline(always)]
     pub fn sub_assign(&mut self, rhs: Self) {
-        *self = self.sub(rhs);
+        self.0 = self.0.sub(rhs.0, DM::DILATED_MAX);
     }
 }
 
