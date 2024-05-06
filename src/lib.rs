@@ -111,6 +111,7 @@ pub mod fixed;
 pub use crate::fixed::{DilateFixed, Fixed};
 
 /// Denotes an integer type supported by the various dilation and undilation methods
+#[allow(private_bounds)]
 pub trait DilatableType:
     Default + Copy + Ord + Hash + Debug + internal::DilateExplicit + internal::UndilateExplicit
 {
