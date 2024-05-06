@@ -26,66 +26,7 @@
 //
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
-pub trait Sealed {
-    fn from_u8(value: u8) -> Self;
-    fn from_u16(value: u16) -> Self;
-    fn from_u32(value: u32) -> Self;
-    fn from_u64(value: u64) -> Self;
-    fn from_u128(value: u128) -> Self;
-    fn from_usize(value: usize) -> Self;
-    fn to_u8(self) -> u8;
-    fn to_u16(self) -> u16;
-    fn to_u32(self) -> u32;
-    fn to_u64(self) -> u64;
-    fn to_u128(self) -> u128;
-    fn to_usize(self) -> usize;
-}
-
-macro_rules! impl_sealed {
-    ($($t:ty),+) => {$(
-        impl Sealed for $t {
-            #[inline(always)]
-            fn from_u8(value: u8) -> Self { value as $t }
-
-            #[inline(always)]
-            fn from_u16(value: u16) -> Self { value as $t }
-
-            #[inline(always)]
-            fn from_u32(value: u32) -> Self { value as $t }
-
-            #[inline(always)]
-            fn from_u64(value: u64) -> Self { value as $t }
-
-            #[inline(always)]
-            fn from_u128(value: u128) -> Self { value as $t }
-
-            #[inline(always)]
-            fn from_usize(value: usize) -> Self { value as $t }
-
-            #[inline(always)]
-            fn to_u8(self) -> u8 { self as u8 }
-
-            #[inline(always)]
-            fn to_u16(self) -> u16 { self as u16 }
-
-            #[inline(always)]
-            fn to_u32(self) -> u32 { self as u32 }
-
-            #[inline(always)]
-            fn to_u64(self) -> u64 { self as u64 }
-
-            #[inline(always)]
-            fn to_u128(self) -> u128 { self as u128 }
-
-            #[inline(always)]
-            fn to_usize(self) -> usize { self as usize }
-        }
-    )+};
-}
-
-impl_sealed!(u8, u16, u32, u64, u128, usize);
-
-pub trait NumTraits: Copy {
+pub(crate) trait NumTraits: Copy {
     fn zero() -> Self;
     fn one() -> Self;
     fn mul_wrapping(self, rhs: Self) -> Self;
@@ -132,24 +73,28 @@ macro_rules! impl_num_traits {
 
 impl_num_traits!(u8, u16, u32, u64, u128, usize);
 
+macro_rules! undilated_max_check {
+    ($v:expr, $t:ty, $d:expr) => {
+        debug_assert!(
+            $v <= build_fixed_undilated_max::<$t, $d>() as $t,
+            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+        )
+    };
+}
+
 macro_rules! impl_dilate_dn {
     () => {
         #[inline(always)]
-        fn dilate_explicit_dn<const D: usize>(self) -> Self {
+        fn dilate_explicit_dn<const D: usize>(mut self) -> Self {
             debug_assert!(D > 2, "Generic parameter 'D' must be greater than 2");
-            debug_assert!(
-                self <= build_fixed_undilated_max::<Self, D>() as Self,
-                "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-            );
-
-            let mut v = self;
+            undilated_max_check!(self, Self, D);
             let mut i = 0;
             while i <= dilate_max_round::<Self, D>() {
-                v = v.mul_wrapping(dilate_mult::<Self, D>(i) as Self)
+                self = self.mul_wrapping(dilate_mult::<Self, D>(i) as Self)
                     & dilate_mask::<Self, D>(i) as Self;
                 i += 1;
             }
-            v
+            self
         }
     };
 }
@@ -157,201 +102,150 @@ macro_rules! impl_dilate_dn {
 macro_rules! impl_undilate_dn {
     () => {
         #[inline(always)]
-        fn undilate_explicit_dn<const D: usize>(self) -> Self {
+        fn undilate_explicit_dn<const D: usize>(mut self) -> Self {
             debug_assert!(D > 1, "Generic parameter 'D' must be greater than 1");
-            let mut v = self;
             let mut i = 0;
             while i <= undilate_max_round::<Self, D>() {
-                v = v.mul_wrapping(undilate_mult::<Self, D>(i) as Self)
+                self = self.mul_wrapping(undilate_mult::<Self, D>(i) as Self)
                     & undilate_mask::<Self, D>(i) as Self;
                 i += 1;
             }
-            v >> undilate_shift::<Self, D>() as Self
+            self >> undilate_shift::<Self, D>() as Self
         }
     };
 }
 
-pub trait DilateExplicit: NumTraits {
+pub(crate) trait DilateExplicit: NumTraits {
     fn dilate_explicit_d2(self) -> Self;
     fn dilate_explicit_d3(self) -> Self;
     fn dilate_explicit_dn<const D: usize>(self) -> Self;
 }
 
 impl DilateExplicit for u8 {
+    // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [2]
-        let mut v = self;
-        v = (v | (v << 2)) & 0x33;
-        v = (v | (v << 1)) & 0x55;
-        v
+    fn dilate_explicit_d2(mut self) -> Self {
+        undilated_max_check!(self, Self, 2);
+        self = (self | (self << 2)) & 0x33;
+        self = (self | (self << 1)) & 0x55;
+        self
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x11) & 0xC3;
-        v = v.mul_wrapping(0x05) & 0x49;
-        v
+    fn dilate_explicit_d3(mut self) -> Self {
+        undilated_max_check!(self, Self, 3);
+        self = self.mul_wrapping(0x11) & 0xC3;
+        self = self.mul_wrapping(0x05) & 0x49;
+        self
     }
 
     impl_dilate_dn!();
 }
 
 impl DilateExplicit for u16 {
+    // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [2]
-        let mut v = self;
-        v = (v | (v << 4)) & 0x0F0F;
-        v = (v | (v << 2)) & 0x3333;
-        v = (v | (v << 1)) & 0x5555;
-        v
+    fn dilate_explicit_d2(mut self) -> Self {
+        undilated_max_check!(self, Self, 2);
+        self = (self | (self << 4)) & 0x0F0F;
+        self = (self | (self << 2)) & 0x3333;
+        self = (self | (self << 1)) & 0x5555;
+        self
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x101) & 0xF00F;
-        v = v.mul_wrapping(0x011) & 0x30C3;
-        v = v.mul_wrapping(0x005) & 0x9249;
-        v
+    fn dilate_explicit_d3(mut self) -> Self {
+        undilated_max_check!(self, Self, 3);
+        self = self.mul_wrapping(0x101) & 0xF00F;
+        self = self.mul_wrapping(0x011) & 0x30C3;
+        self = self.mul_wrapping(0x005) & 0x9249;
+        self
     }
 
     impl_dilate_dn!();
 }
 
 impl DilateExplicit for u32 {
+    // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [2]
-        let mut v = self;
-        v = (v | (v << 8)) & 0x00FF00FF;
-        v = (v | (v << 4)) & 0x0F0F0F0F;
-        v = (v | (v << 2)) & 0x33333333;
-        v = (v | (v << 1)) & 0x55555555;
-        v
+    fn dilate_explicit_d2(mut self) -> Self {
+        undilated_max_check!(self, Self, 2);
+        self = (self | (self << 8)) & 0x00FF00FF;
+        self = (self | (self << 4)) & 0x0F0F0F0F;
+        self = (self | (self << 2)) & 0x33333333;
+        self = (self | (self << 1)) & 0x55555555;
+        self
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x10001) & 0xFF0000FF;
-        v = v.mul_wrapping(0x00101) & 0x0F00F00F;
-        v = v.mul_wrapping(0x00011) & 0xC30C30C3;
-        v = v.mul_wrapping(0x00005) & 0x49249249;
-        v
+    fn dilate_explicit_d3(mut self) -> Self {
+        undilated_max_check!(self, Self, 3);
+        self = self.mul_wrapping(0x10001) & 0xFF0000FF;
+        self = self.mul_wrapping(0x00101) & 0x0F00F00F;
+        self = self.mul_wrapping(0x00011) & 0xC30C30C3;
+        self = self.mul_wrapping(0x00005) & 0x49249249;
+        self
     }
 
     impl_dilate_dn!();
 }
 
 impl DilateExplicit for u64 {
+    // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [2]
-        let mut v = self;
-        v = (v | (v << 16)) & 0x0000FFFF0000FFFF;
-        v = (v | (v << 08)) & 0x00FF00FF00FF00FF;
-        v = (v | (v << 04)) & 0x0F0F0F0F0F0F0F0F;
-        v = (v | (v << 02)) & 0x3333333333333333;
-        v = (v | (v << 01)) & 0x5555555555555555;
-        v
+    fn dilate_explicit_d2(mut self) -> Self {
+        undilated_max_check!(self, Self, 2);
+        self = (self | (self << 16)) & 0x0000FFFF0000FFFF;
+        self = (self | (self << 08)) & 0x00FF00FF00FF00FF;
+        self = (self | (self << 04)) & 0x0F0F0F0F0F0F0F0F;
+        self = (self | (self << 02)) & 0x3333333333333333;
+        self = (self | (self << 01)) & 0x5555555555555555;
+        self
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x100000001) & 0xFFFF00000000FFFF;
-        v = v.mul_wrapping(0x000010001) & 0x00FF0000FF0000FF;
-        v = v.mul_wrapping(0x000000101) & 0xF00F00F00F00F00F;
-        v = v.mul_wrapping(0x000000011) & 0x30C30C30C30C30C3;
-        v = v.mul_wrapping(0x000000005) & 0x9249249249249249;
-        v
+    fn dilate_explicit_d3(mut self) -> Self {
+        undilated_max_check!(self, Self, 3);
+        self = self.mul_wrapping(0x100000001) & 0xFFFF00000000FFFF;
+        self = self.mul_wrapping(0x000010001) & 0x00FF0000FF0000FF;
+        self = self.mul_wrapping(0x000000101) & 0xF00F00F00F00F00F;
+        self = self.mul_wrapping(0x000000011) & 0x30C30C30C30C30C3;
+        self = self.mul_wrapping(0x000000005) & 0x9249249249249249;
+        self
     }
 
     impl_dilate_dn!();
 }
 
 impl DilateExplicit for u128 {
+    // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [2]
-        let mut v = self;
-        v = (v | (v << 32)) & 0x00000000FFFFFFFF00000000FFFFFFFF;
-        v = (v | (v << 16)) & 0x0000FFFF0000FFFF0000FFFF0000FFFF;
-        v = (v | (v << 08)) & 0x00FF00FF00FF00FF00FF00FF00FF00FF;
-        v = (v | (v << 04)) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F;
-        v = (v | (v << 02)) & 0x33333333333333333333333333333333;
-        v = (v | (v << 01)) & 0x55555555555555555555555555555555;
-        v
+    fn dilate_explicit_d2(mut self) -> Self {
+        undilated_max_check!(self, Self, 2);
+        self = (self | (self << 32)) & 0x00000000FFFFFFFF00000000FFFFFFFF;
+        self = (self | (self << 16)) & 0x0000FFFF0000FFFF0000FFFF0000FFFF;
+        self = (self | (self << 08)) & 0x00FF00FF00FF00FF00FF00FF00FF00FF;
+        self = (self | (self << 04)) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F;
+        self = (self | (self << 02)) & 0x33333333333333333333333333333333;
+        self = (self | (self << 01)) & 0x55555555555555555555555555555555;
+        self
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x10000000000000001) & 0xFFFFFFFF0000000000000000FFFFFFFF;
-        v = v.mul_wrapping(0x00000000100000001) & 0x0000FFFF00000000FFFF00000000FFFF;
-        v = v.mul_wrapping(0x00000000000010001) & 0xFF0000FF0000FF0000FF0000FF0000FF;
-        v = v.mul_wrapping(0x00000000000000101) & 0x0F00F00F00F00F00F00F00F00F00F00F;
-        v = v.mul_wrapping(0x00000000000000011) & 0xC30C30C30C30C30C30C30C30C30C30C3;
-        v = v.mul_wrapping(0x00000000000000005) & 0x49249249249249249249249249249249;
-        v
+    fn dilate_explicit_d3(mut self) -> Self {
+        undilated_max_check!(self, Self, 3);
+        self = self.mul_wrapping(0x10000000000000001) & 0xFFFFFFFF0000000000000000FFFFFFFF;
+        self = self.mul_wrapping(0x00000000100000001) & 0x0000FFFF00000000FFFF00000000FFFF;
+        self = self.mul_wrapping(0x00000000000010001) & 0xFF0000FF0000FF0000FF0000FF0000FF;
+        self = self.mul_wrapping(0x00000000000000101) & 0x0F00F00F00F00F00F00F00F00F00F00F;
+        self = self.mul_wrapping(0x00000000000000011) & 0xC30C30C30C30C30C30C30C30C30C30C3;
+        self = self.mul_wrapping(0x00000000000000005) & 0x49249249249249249249249249249249;
+        self
     }
 
     impl_dilate_dn!();
@@ -359,164 +253,154 @@ impl DilateExplicit for u128 {
 
 impl DilateExplicit for usize {
     #[inline(always)]
-    fn dilate_explicit_d2(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 2>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
+    fn dilate_explicit_d2(mut self) -> Self {
+        undilated_max_check!(self, Self, 2);
+        #[cfg(target_pointer_width = "8")]
+        let r = (self as u8).dilate_explicit_d2();
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).dilate_explicit_d2();
         #[cfg(target_pointer_width = "32")]
         let r = (self as u32).dilate_explicit_d2();
         #[cfg(target_pointer_width = "64")]
         let r = (self as u64).dilate_explicit_d2();
+        #[cfg(target_pointer_width = "128")]
+        let r = (self as u128).dilate_explicit_d2();
         r as usize
     }
 
     #[inline(always)]
-    fn dilate_explicit_d3(self) -> Self {
-        debug_assert!(
-            self <= build_fixed_undilated_max::<Self, 3>() as Self,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        );
-
+    fn dilate_explicit_d3(mut self) -> Self {
+        undilated_max_check!(self, Self, 3);
+        #[cfg(target_pointer_width = "8")]
+        let r = (self as u8).dilate_explicit_d3();
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).dilate_explicit_d3();
         #[cfg(target_pointer_width = "32")]
         let r = (self as u32).dilate_explicit_d3();
         #[cfg(target_pointer_width = "64")]
         let r = (self as u64).dilate_explicit_d3();
+        #[cfg(target_pointer_width = "128")]
+        let r = (self as u128).dilate_explicit_d3();
         r as usize
     }
 
     impl_dilate_dn!();
 }
 
-pub trait UndilateExplicit: NumTraits {
+pub(crate) trait UndilateExplicit: NumTraits {
     fn undilate_explicit_d2(self) -> Self;
     fn undilate_explicit_d3(self) -> Self;
     fn undilate_explicit_dn<const D: usize>(self) -> Self;
 }
 
 impl UndilateExplicit for u8 {
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d2(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x3) & 0x66;
-        v = v.mul_wrapping(0x5) & 0x78;
-        v >> 3
+    fn undilate_explicit_d2(mut self) -> Self {
+        self = self.mul_wrapping(0x3) & 0x66;
+        self = self.mul_wrapping(0x5) & 0x78;
+        self >> 3
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d3(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x15) & 0x0e;
-        v >> 2
+    fn undilate_explicit_d3(mut self) -> Self {
+        self = self.mul_wrapping(0x15) & 0x0e;
+        self >> 2
     }
 
     impl_undilate_dn!();
 }
 
 impl UndilateExplicit for u16 {
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d2(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x003) & 0x6666;
-        v = v.mul_wrapping(0x005) & 0x7878;
-        v = v.mul_wrapping(0x011) & 0x7f80;
-        v >> 7
+    fn undilate_explicit_d2(mut self) -> Self {
+        self = self.mul_wrapping(0x003) & 0x6666;
+        self = self.mul_wrapping(0x005) & 0x7878;
+        self = self.mul_wrapping(0x011) & 0x7f80;
+        self >> 7
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d3(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x0015) & 0x1c0e;
-        v = v.mul_wrapping(0x1041) & 0x1ff0;
-        v >> 8
+    fn undilate_explicit_d3(mut self) -> Self {
+        self = self.mul_wrapping(0x0015) & 0x1c0e;
+        self = self.mul_wrapping(0x1041) & 0x1ff0;
+        self >> 8
     }
 
     impl_undilate_dn!();
 }
 
 impl UndilateExplicit for u32 {
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d2(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x00000003) & 0x66666666;
-        v = v.mul_wrapping(0x00000005) & 0x78787878;
-        v = v.mul_wrapping(0x00000011) & 0x7F807F80;
-        v = v.mul_wrapping(0x00000101) & 0x7FFF8000;
-        v >> 15
+    fn undilate_explicit_d2(mut self) -> Self {
+        self = self.mul_wrapping(0x00000003) & 0x66666666;
+        self = self.mul_wrapping(0x00000005) & 0x78787878;
+        self = self.mul_wrapping(0x00000011) & 0x7F807F80;
+        self = self.mul_wrapping(0x00000101) & 0x7FFF8000;
+        self >> 15
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d3(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x00015) & 0x0E070381;
-        v = v.mul_wrapping(0x01041) & 0x0FF80001;
-        v = v.mul_wrapping(0x40001) & 0x0FFFFFFE;
-        v >> 18
+    fn undilate_explicit_d3(mut self) -> Self {
+        self = self.mul_wrapping(0x00015) & 0x0E070381;
+        self = self.mul_wrapping(0x01041) & 0x0FF80001;
+        self = self.mul_wrapping(0x40001) & 0x0FFFFFFE;
+        self >> 18
     }
 
     impl_undilate_dn!();
 }
 
 impl UndilateExplicit for u64 {
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d2(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x00003) & 0x6666666666666666;
-        v = v.mul_wrapping(0x00005) & 0x7878787878787878;
-        v = v.mul_wrapping(0x00011) & 0x7F807F807F807F80;
-        v = v.mul_wrapping(0x00101) & 0x7FFF80007FFF8000;
-        v = v.mul_wrapping(0x10001) & 0x7FFFFFFF80000000;
-        v >> 31
+    fn undilate_explicit_d2(mut self) -> Self {
+        self = self.mul_wrapping(0x00003) & 0x6666666666666666;
+        self = self.mul_wrapping(0x00005) & 0x7878787878787878;
+        self = self.mul_wrapping(0x00011) & 0x7F807F807F807F80;
+        self = self.mul_wrapping(0x00101) & 0x7FFF80007FFF8000;
+        self = self.mul_wrapping(0x10001) & 0x7FFFFFFF80000000;
+        self >> 31
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d3(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x0000000000000015) & 0x1c0e070381c0e070;
-        v = v.mul_wrapping(0x0000000000001041) & 0x1ff00003fe00007f;
-        v = v.mul_wrapping(0x0000001000040001) & 0x1ffffffc00000000;
-        v >> 40
+    fn undilate_explicit_d3(mut self) -> Self {
+        self = self.mul_wrapping(0x0000000000000015) & 0x1c0e070381c0e070;
+        self = self.mul_wrapping(0x0000000000001041) & 0x1ff00003fe00007f;
+        self = self.mul_wrapping(0x0000001000040001) & 0x1ffffffc00000000;
+        self >> 40
     }
 
     impl_undilate_dn!();
 }
 
 impl UndilateExplicit for u128 {
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d2(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x000000003) & 0x66666666666666666666666666666666;
-        v = v.mul_wrapping(0x000000005) & 0x78787878787878787878787878787878;
-        v = v.mul_wrapping(0x000000011) & 0x7f807f807f807f807f807f807f807f80;
-        v = v.mul_wrapping(0x000000101) & 0x7fff80007fff80007fff80007fff8000;
-        v = v.mul_wrapping(0x000010001) & 0x7fffffff800000007fffffff80000000;
-        v = v.mul_wrapping(0x100000001) & 0x7fffffffffffffff8000000000000000;
-        v >> 63
+    fn undilate_explicit_d2(mut self) -> Self {
+        self = self.mul_wrapping(0x000000003) & 0x66666666666666666666666666666666;
+        self = self.mul_wrapping(0x000000005) & 0x78787878787878787878787878787878;
+        self = self.mul_wrapping(0x000000011) & 0x7f807f807f807f807f807f807f807f80;
+        self = self.mul_wrapping(0x000000101) & 0x7fff80007fff80007fff80007fff8000;
+        self = self.mul_wrapping(0x000010001) & 0x7fffffff800000007fffffff80000000;
+        self = self.mul_wrapping(0x100000001) & 0x7fffffffffffffff8000000000000000;
+        self >> 63
     }
 
+    // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d3(self) -> Self {
-        // See citation [1]
-        let mut v = self;
-        v = v.mul_wrapping(0x00000000000000000000000000000015) & 0x0e070381c0e070381c0e070381c0e070;
-        v = v.mul_wrapping(0x00000000000000000000000000001041) & 0x0ff80001ff00003fe00007fc0000ff80;
-        v = v.mul_wrapping(0x00000000000000000000001000040001) & 0x0ffffffe00000000000007ffffff0000;
-        v = v.mul_wrapping(0x00001000000000000040000000000001) & 0x0ffffffffffffffffffff80000000000;
-        v >> 82
+    fn undilate_explicit_d3(mut self) -> Self {
+        self = self.mul_wrapping(0x00000000000000000000000000000015) & 0x0e070381c0e070381c0e070381c0e070;
+        self = self.mul_wrapping(0x00000000000000000000000000001041) & 0x0ff80001ff00003fe00007fc0000ff80;
+        self = self.mul_wrapping(0x00000000000000000000001000040001) & 0x0ffffffe00000000000007ffffff0000;
+        self = self.mul_wrapping(0x00001000000000000040000000000001) & 0x0ffffffffffffffffffff80000000000;
+        self >> 82
     }
 
     impl_undilate_dn!();
@@ -524,7 +408,9 @@ impl UndilateExplicit for u128 {
 
 impl UndilateExplicit for usize {
     #[inline(always)]
-    fn undilate_explicit_d2(self) -> Self {
+    fn undilate_explicit_d2(mut self) -> Self {
+        #[cfg(target_pointer_width = "8")]
+        let r = (self as u8).undilate_explicit_d2();
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).undilate_explicit_d2();
         #[cfg(target_pointer_width = "32")]
@@ -535,7 +421,9 @@ impl UndilateExplicit for usize {
     }
 
     #[inline(always)]
-    fn undilate_explicit_d3(self) -> Self {
+    fn undilate_explicit_d3(mut self) -> Self {
+        #[cfg(target_pointer_width = "8")]
+        let r = (self as u8).undilate_explicit_d3();
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).undilate_explicit_d3();
         #[cfg(target_pointer_width = "32")]
@@ -549,7 +437,7 @@ impl UndilateExplicit for usize {
 }
 
 #[inline(always)]
-pub fn dilate_implicit<T, const D: usize>(value: T) -> T
+pub(crate) fn dilate_implicit<T, const D: usize>(value: T) -> T
 where
     T: DilateExplicit,
 {
@@ -561,7 +449,7 @@ where
 }
 
 #[inline(always)]
-pub fn undilate_implicit<T, const D: usize>(value: T) -> T
+pub(crate) fn undilate_implicit<T, const D: usize>(value: T) -> T
 where
     T: UndilateExplicit,
 {
