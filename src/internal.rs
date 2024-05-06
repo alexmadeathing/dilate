@@ -253,7 +253,7 @@ impl DilateExplicit for u128 {
 
 impl DilateExplicit for usize {
     #[inline(always)]
-    fn dilate_explicit_d2(mut self) -> Self {
+    fn dilate_explicit_d2(self) -> Self {
         undilated_max_check!(self, Self, 2);
         #[cfg(target_pointer_width = "8")]
         let r = (self as u8).dilate_explicit_d2();
@@ -269,7 +269,7 @@ impl DilateExplicit for usize {
     }
 
     #[inline(always)]
-    fn dilate_explicit_d3(mut self) -> Self {
+    fn dilate_explicit_d3(self) -> Self {
         undilated_max_check!(self, Self, 3);
         #[cfg(target_pointer_width = "8")]
         let r = (self as u8).dilate_explicit_d3();
@@ -408,7 +408,7 @@ impl UndilateExplicit for u128 {
 
 impl UndilateExplicit for usize {
     #[inline(always)]
-    fn undilate_explicit_d2(mut self) -> Self {
+    fn undilate_explicit_d2(self) -> Self {
         #[cfg(target_pointer_width = "8")]
         let r = (self as u8).undilate_explicit_d2();
         #[cfg(target_pointer_width = "16")]
@@ -421,7 +421,7 @@ impl UndilateExplicit for usize {
     }
 
     #[inline(always)]
-    fn undilate_explicit_d3(mut self) -> Self {
+    fn undilate_explicit_d3(self) -> Self {
         #[cfg(target_pointer_width = "8")]
         let r = (self as u8).undilate_explicit_d3();
         #[cfg(target_pointer_width = "16")]
