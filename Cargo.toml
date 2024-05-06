@@ -2,7 +2,7 @@
 name = "dilate"
 version = "0.6.3"
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.74"
 license = "MIT OR Apache-2.0"
 description = "A compact, high performance integer dilation library for Rust."
 homepage = "https://github.com/alexmadeathing/dilate"
@@ -19,3 +19,8 @@ std = []
 
 [dev-dependencies]
 paste = "1.0.6" # For generation of multi-dimensional, multi-type, test names
+criterion = { version = "0.5.1", features = ["html_reports"] }
+
+[[bench]]
+name = "benches"
+harness = false

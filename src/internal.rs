@@ -98,31 +98,31 @@ pub trait NumTraits: Copy {
 macro_rules! impl_num_traits {
     ($($t:ty),+) => {$(
         impl NumTraits for $t {
-            #[inline]
+            #[inline(always)]
             fn zero() -> Self {
                 0
             }
-            #[inline]
+            #[inline(always)]
             fn one() -> Self {
                 1
             }
-            #[inline]
+            #[inline(always)]
             fn mul_wrapping(self, rhs: Self) -> Self {
                 self.wrapping_mul(rhs)
             }
-            #[inline]
+            #[inline(always)]
             fn add_wrapping(self, rhs: Self) -> Self {
                 self.wrapping_add(rhs)
             }
-            #[inline]
+            #[inline(always)]
             fn sub_wrapping(self, rhs: Self) -> Self {
                 self.wrapping_sub(rhs)
             }
-            #[inline]
+            #[inline(always)]
             fn bit_not(self) -> Self {
                 !self
             }
-            #[inline]
+            #[inline(always)]
             fn bit_and(self, rhs: Self) -> Self {
                 self & rhs
             }
@@ -134,7 +134,7 @@ impl_num_traits!(u8, u16, u32, u64, u128, usize);
 
 macro_rules! impl_dilate_dn {
     () => {
-        #[inline]
+        #[inline(always)]
         fn dilate_explicit_dn<const D: usize>(self) -> Self {
             debug_assert!(D > 2, "Generic parameter 'D' must be greater than 2");
             debug_assert!(
@@ -156,7 +156,7 @@ macro_rules! impl_dilate_dn {
 
 macro_rules! impl_undilate_dn {
     () => {
-        #[inline]
+        #[inline(always)]
         fn undilate_explicit_dn<const D: usize>(self) -> Self {
             debug_assert!(D > 1, "Generic parameter 'D' must be greater than 1");
             let mut v = self;
@@ -178,7 +178,7 @@ pub trait DilateExplicit: NumTraits {
 }
 
 impl DilateExplicit for u8 {
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
@@ -192,7 +192,7 @@ impl DilateExplicit for u8 {
         v
     }
 
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
@@ -210,7 +210,7 @@ impl DilateExplicit for u8 {
 }
 
 impl DilateExplicit for u16 {
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
@@ -225,7 +225,7 @@ impl DilateExplicit for u16 {
         v
     }
 
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
@@ -244,7 +244,7 @@ impl DilateExplicit for u16 {
 }
 
 impl DilateExplicit for u32 {
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
@@ -260,7 +260,7 @@ impl DilateExplicit for u32 {
         v
     }
 
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
@@ -280,7 +280,7 @@ impl DilateExplicit for u32 {
 }
 
 impl DilateExplicit for u64 {
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
@@ -297,7 +297,7 @@ impl DilateExplicit for u64 {
         v
     }
 
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
@@ -318,7 +318,7 @@ impl DilateExplicit for u64 {
 }
 
 impl DilateExplicit for u128 {
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
@@ -336,7 +336,7 @@ impl DilateExplicit for u128 {
         v
     }
 
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
@@ -358,7 +358,7 @@ impl DilateExplicit for u128 {
 }
 
 impl DilateExplicit for usize {
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d2(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 2>() as Self,
@@ -374,7 +374,7 @@ impl DilateExplicit for usize {
         r as usize
     }
 
-    #[inline]
+    #[inline(always)]
     fn dilate_explicit_d3(self) -> Self {
         debug_assert!(
             self <= build_fixed_undilated_max::<Self, 3>() as Self,
@@ -400,7 +400,7 @@ pub trait UndilateExplicit: NumTraits {
 }
 
 impl UndilateExplicit for u8 {
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -409,7 +409,7 @@ impl UndilateExplicit for u8 {
         v >> 3
     }
 
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -421,7 +421,7 @@ impl UndilateExplicit for u8 {
 }
 
 impl UndilateExplicit for u16 {
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -431,7 +431,7 @@ impl UndilateExplicit for u16 {
         v >> 7
     }
 
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -444,7 +444,7 @@ impl UndilateExplicit for u16 {
 }
 
 impl UndilateExplicit for u32 {
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -455,7 +455,7 @@ impl UndilateExplicit for u32 {
         v >> 15
     }
 
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -469,7 +469,7 @@ impl UndilateExplicit for u32 {
 }
 
 impl UndilateExplicit for u64 {
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -481,7 +481,7 @@ impl UndilateExplicit for u64 {
         v >> 31
     }
 
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -495,7 +495,7 @@ impl UndilateExplicit for u64 {
 }
 
 impl UndilateExplicit for u128 {
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d2(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -508,7 +508,7 @@ impl UndilateExplicit for u128 {
         v >> 63
     }
 
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d3(self) -> Self {
         // See citation [1]
         let mut v = self;
@@ -523,7 +523,7 @@ impl UndilateExplicit for u128 {
 }
 
 impl UndilateExplicit for usize {
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d2(self) -> Self {
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).undilate_explicit_d2();
@@ -534,7 +534,7 @@ impl UndilateExplicit for usize {
         r as usize
     }
 
-    #[inline]
+    #[inline(always)]
     fn undilate_explicit_d3(self) -> Self {
         #[cfg(target_pointer_width = "16")]
         let r = (self as u16).undilate_explicit_d3();
@@ -548,7 +548,7 @@ impl UndilateExplicit for usize {
     impl_undilate_dn!();
 }
 
-#[inline]
+#[inline(always)]
 pub fn dilate_implicit<T, const D: usize>(value: T) -> T
 where
     T: DilateExplicit,
@@ -560,7 +560,7 @@ where
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn undilate_implicit<T, const D: usize>(value: T) -> T
 where
     T: UndilateExplicit,
@@ -577,7 +577,7 @@ where
 // Instantiations of each const function can therefore safely blind cast to the appropriate type
 
 // Calculates the maximum undilated value that fits into D-dilated T (fixed)
-#[inline]
+#[inline(always)]
 pub(crate) const fn build_fixed_undilated_max<T, const D: usize>() -> u128 {
     let bits_available = core::mem::size_of::<T>() * 8;
     let s_minus_1 = bits_available / D - 1;
@@ -590,7 +590,7 @@ pub(crate) const fn build_fixed_undilated_max<T, const D: usize>() -> u128 {
 
 // Builds a dilated mask with p repetitions of 1 bits separated by (q - 1) 0 bits
 // See Notation 4.2 in citation [1]
-#[inline]
+#[inline(always)]
 pub(crate) const fn build_dilated_mask(p_repetitions: usize, q_width: usize) -> u128 {
     let mut r = p_repetitions;
     let mut v = 0;
@@ -603,7 +603,7 @@ pub(crate) const fn build_dilated_mask(p_repetitions: usize, q_width: usize) -> 
 
 // Calculates the maximum D-dilation round (total number of D-dilation rounds minus one)
 // See Algorithm 9 in citation [1]
-#[inline]
+#[inline(always)]
 pub(crate) const fn dilate_max_round<T, const D: usize>() -> usize {
     let s = (core::mem::size_of::<T>() * 8) / D;
     s.ilog(D - 1) as usize
@@ -611,7 +611,7 @@ pub(crate) const fn dilate_max_round<T, const D: usize>() -> usize {
 
 // Calculates the D-dilation multiplier for each round
 // See section IV.D in citation [1]
-#[inline]
+#[inline(always)]
 pub(crate) const fn dilate_mult<T, const D: usize>(round: usize) -> u128 {
     let round_inv = dilate_max_round::<T, D>() - round;
     build_dilated_mask(D - 1, (D - 1).pow(round_inv as u32 + 1))
@@ -619,7 +619,7 @@ pub(crate) const fn dilate_mult<T, const D: usize>(round: usize) -> u128 {
 
 // Calculates the D-dilation mask for each round
 // See section IV.D in citation [1]
-#[inline]
+#[inline(always)]
 pub(crate) const fn dilate_mask<T, const D: usize>(round: usize) -> u128 {
     let round_inv = dilate_max_round::<T, D>() - round;
     let num_set_bits = (D - 1).pow(round_inv as u32);
@@ -637,7 +637,7 @@ pub(crate) const fn dilate_mask<T, const D: usize>(round: usize) -> u128 {
 
 // Calculates the maximum D-undilation round (total number of D-undilation rounds minus one)
 // See Algorithm 10 in citation [1]
-#[inline]
+#[inline(always)]
 pub(crate) const fn undilate_max_round<T, const D: usize>() -> usize {
     let s = (core::mem::size_of::<T>() * 8) / D;
     s.ilog(D) as usize
@@ -645,14 +645,14 @@ pub(crate) const fn undilate_max_round<T, const D: usize>() -> usize {
 
 // Calculates the D-undilation multiplier for each round
 // See section IV.D in citation [1]
-#[inline]
+#[inline(always)]
 pub(crate) const fn undilate_mult<T, const D: usize>(round: usize) -> u128 {
     build_dilated_mask(D, D.pow(round as u32) * (D - 1))
 }
 
 // Calculates the D-undilation mask for each round
 // See section IV.D in citation [1]
-#[inline]
+#[inline(always)]
 pub(crate) const fn undilate_mask<T, const D: usize>(round: usize) -> u128 {
     let s = (core::mem::size_of::<T>() * 8) / D;
     let num_blank_bits = D.pow(round as u32 + 1) * (D - 1);
@@ -678,7 +678,7 @@ pub(crate) const fn undilate_mask<T, const D: usize>(round: usize) -> u128 {
     v
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) const fn undilate_shift<T, const D: usize>() -> usize {
     let s = (core::mem::size_of::<T>() * 8) / D;
     (D * (s - 1) + 1) - s
@@ -701,17 +701,17 @@ mod tests {
     macro_rules! impl_dilation_test_data {
         ($t:ty, $d:literal, $dil_max:literal, $num_rounds:literal, $(($round:literal, $mult:literal, $mask:literal)),*) => {
             impl DilationTestData<$t, $d> {
-                #[inline]
+                #[inline(always)]
                 fn dilated_max() -> $t {
                     $dil_max
                 }
 
-                #[inline]
+                #[inline(always)]
                 fn num_rounds() -> usize {
                     $num_rounds
                 }
 
-                #[inline]
+                #[inline(always)]
                 fn test_cases() -> std::vec::Vec<(usize, $t, $t)> {
                     std::vec![$(($round, $mult, $mask)),*]
                 }
@@ -767,22 +767,22 @@ mod tests {
     macro_rules! impl_undilation_test_data {
         ($t:ty, $d:literal, $undil_max:literal, $undil_shift:literal, $num_rounds:literal, $(($round:literal, $mult:literal, $mask:literal)),*) => {
             impl UndilationTestData<$t, $d> {
-                #[inline]
+                #[inline(always)]
                 fn fixed_undilated_max() -> $t {
                     $undil_max
                 }
 
-                #[inline]
+                #[inline(always)]
                 fn undilate_shift() -> usize {
                     $undil_shift
                 }
 
-                #[inline]
+                #[inline(always)]
                 fn num_rounds() -> usize {
                     $num_rounds
                 }
 
-                #[inline]
+                #[inline(always)]
                 fn test_cases() -> std::vec::Vec<(usize, $t, $t)> {
                     std::vec![$(($round, $mult, $mask)),*]
                 }
