@@ -6,87 +6,96 @@
 //
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
-pub(crate) trait NumTraits: Copy {
-    fn zero() -> Self;
-    fn one() -> Self;
-    fn mul_wrapping(self, rhs: Self) -> Self;
-    fn add_wrapping(self, rhs: Self) -> Self;
-    fn sub_wrapping(self, rhs: Self) -> Self;
-    fn bit_not(self) -> Self;
-    fn bit_and(self, rhs: Self) -> Self;
+use core::fmt::Debug;
+use core::hash::Hash;
+
+pub(crate) trait Sealed: Sized + Clone + Copy + Default + Debug + PartialEq + Eq + PartialOrd + Ord + Hash {
+    // Main entrypoints
+    fn is_valid_dilated_value(self, dilated_max: Self) -> bool;
+    fn dilate<const D: usize>(self) -> Self;
+    fn undilate<const D: usize>(self) -> Self;
+    fn add_one(self, dilated_max: Self) -> Self;
+    fn sub_one(self, dilated_max: Self) -> Self;
+    fn add(self, rhs: Self, dilated_max: Self) -> Self;
+    fn sub(self, rhs: Self, dilated_max: Self) -> Self;
+
+    // Utility methods
+    fn _dilate_d2(self) -> Self;
+    fn _dilate_d3(self) -> Self;
+    fn _dilate_dn<const D: usize>(self) -> Self;
+    fn _undilate_d2(self) -> Self;
+    fn _undilate_d3(self) -> Self;
+    fn _undilate_dn<const D: usize>(self) -> Self;
 }
 
-macro_rules! impl_num_traits {
-    ($($t:ty),+) => {$(
-        impl NumTraits for $t {
-            #[inline(always)]
-            fn zero() -> Self {
-                0
-            }
-            #[inline(always)]
-            fn one() -> Self {
-                1
-            }
-            #[inline(always)]
-            fn mul_wrapping(self, rhs: Self) -> Self {
-                self.wrapping_mul(rhs)
-            }
-            #[inline(always)]
-            fn add_wrapping(self, rhs: Self) -> Self {
-                self.wrapping_add(rhs)
-            }
-            #[inline(always)]
-            fn sub_wrapping(self, rhs: Self) -> Self {
-                self.wrapping_sub(rhs)
-            }
-            #[inline(always)]
-            fn bit_not(self) -> Self {
-                !self
-            }
-            #[inline(always)]
-            fn bit_and(self, rhs: Self) -> Self {
-                self & rhs
-            }
-        }
-    )+};
-}
-
-impl_num_traits!(u8, u16, u32, u64, u128, usize);
-
-macro_rules! undilated_max_check {
-    ($v:expr, $t:ty, $d:expr) => {
-        debug_assert!(
-            $v <= build_fixed_undilated_max::<$t, $d>() as $t,
-            "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
-        )
-    };
-}
-
-macro_rules! impl_dilate_dn {
+macro_rules! impl_dilatable_type_common {
     () => {
         #[inline(always)]
-        fn dilate_explicit_dn<const D: usize>(mut self) -> Self {
+        fn is_valid_dilated_value(self, dilated_max: Self) -> bool {
+            self & !dilated_max == 0
+        }
+
+        #[inline(always)]
+        fn dilate<const D: usize>(self) -> Self {
+            debug_assert!(
+                self <= build_fixed_undilated_max::<Self, D>() as Self,
+                "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
+            );
+        
+            match D {
+                2 => self._dilate_d2(),
+                3 => self._dilate_d3(),
+                _ => self._dilate_dn::<D>(),
+            }
+        }
+        
+        #[inline(always)]
+        fn undilate<const D: usize>(self) -> Self {
+            match D {
+                2 => self._undilate_d2(),
+                3 => self._undilate_d3(),
+                _ => self._undilate_dn::<D>(),
+            }
+        }
+
+        #[inline(always)]
+        fn add_one(self, dilated_max: Self) -> Self {
+            self.wrapping_sub(dilated_max) & dilated_max
+        }
+
+        #[inline(always)]
+        fn sub_one(self, dilated_max: Self) -> Self {
+            self.wrapping_sub(1) & dilated_max
+        }
+
+        #[inline(always)]
+        fn add(self, rhs: Self, dilated_max: Self) -> Self {
+            self.wrapping_add(!dilated_max).wrapping_add(rhs) & dilated_max
+        }
+
+        #[inline(always)]
+        fn sub(self, rhs: Self, dilated_max: Self) -> Self {
+            self.wrapping_sub(rhs) & dilated_max
+        }
+
+        #[inline(always)]
+        fn _dilate_dn<const D: usize>(mut self) -> Self {
             debug_assert!(D > 2, "Generic parameter 'D' must be greater than 2");
-            undilated_max_check!(self, Self, D);
             let mut i = 0;
             while i <= dilate_max_round::<Self, D>() {
-                self = self.mul_wrapping(dilate_mult::<Self, D>(i) as Self)
+                self = self.wrapping_mul(dilate_mult::<Self, D>(i) as Self)
                     & dilate_mask::<Self, D>(i) as Self;
                 i += 1;
             }
             self
         }
-    };
-}
 
-macro_rules! impl_undilate_dn {
-    () => {
         #[inline(always)]
-        fn undilate_explicit_dn<const D: usize>(mut self) -> Self {
+        fn _undilate_dn<const D: usize>(mut self) -> Self {
             debug_assert!(D > 1, "Generic parameter 'D' must be greater than 1");
             let mut i = 0;
             while i <= undilate_max_round::<Self, D>() {
-                self = self.mul_wrapping(undilate_mult::<Self, D>(i) as Self)
+                self = self.wrapping_mul(undilate_mult::<Self, D>(i) as Self)
                     & undilate_mask::<Self, D>(i) as Self;
                 i += 1;
             }
@@ -95,17 +104,12 @@ macro_rules! impl_undilate_dn {
     };
 }
 
-pub(crate) trait DilateExplicit: NumTraits {
-    fn dilate_explicit_d2(self) -> Self;
-    fn dilate_explicit_d3(self) -> Self;
-    fn dilate_explicit_dn<const D: usize>(self) -> Self;
-}
+impl Sealed for u8 {
+    impl_dilatable_type_common!();
 
-impl DilateExplicit for u8 {
     // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(mut self) -> Self {
-        undilated_max_check!(self, Self, 2);
+    fn _dilate_d2(mut self) -> Self {
         self = (self | (self << 2)) & 0x33;
         self = (self | (self << 1)) & 0x55;
         self
@@ -113,21 +117,34 @@ impl DilateExplicit for u8 {
 
     // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(mut self) -> Self {
-        undilated_max_check!(self, Self, 3);
-        self = self.mul_wrapping(0x11) & 0xC3;
-        self = self.mul_wrapping(0x05) & 0x49;
+    fn _dilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x11) & 0xC3;
+        self = self.wrapping_mul(0x05) & 0x49;
         self
     }
 
-    impl_dilate_dn!();
+    // See citation [1]
+    #[inline(always)]
+    fn _undilate_d2(mut self) -> Self {
+        self = self.wrapping_mul(0x3) & 0x66;
+        self = self.wrapping_mul(0x5) & 0x78;
+        self >> 3
+    }
+
+    // See citation [1]
+    #[inline(always)]
+    fn _undilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x15) & 0x0e;
+        self >> 2
+    }
 }
 
-impl DilateExplicit for u16 {
+impl Sealed for u16 {
+    impl_dilatable_type_common!();
+    
     // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(mut self) -> Self {
-        undilated_max_check!(self, Self, 2);
+    fn _dilate_d2(mut self) -> Self {
         self = (self | (self << 4)) & 0x0F0F;
         self = (self | (self << 2)) & 0x3333;
         self = (self | (self << 1)) & 0x5555;
@@ -136,22 +153,37 @@ impl DilateExplicit for u16 {
 
     // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(mut self) -> Self {
-        undilated_max_check!(self, Self, 3);
-        self = self.mul_wrapping(0x101) & 0xF00F;
-        self = self.mul_wrapping(0x011) & 0x30C3;
-        self = self.mul_wrapping(0x005) & 0x9249;
+    fn _dilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x101) & 0xF00F;
+        self = self.wrapping_mul(0x011) & 0x30C3;
+        self = self.wrapping_mul(0x005) & 0x9249;
         self
     }
 
-    impl_dilate_dn!();
+    // See citation [1]
+    #[inline(always)]
+    fn _undilate_d2(mut self) -> Self {
+        self = self.wrapping_mul(0x003) & 0x6666;
+        self = self.wrapping_mul(0x005) & 0x7878;
+        self = self.wrapping_mul(0x011) & 0x7f80;
+        self >> 7
+    }
+
+    // See citation [1]
+    #[inline(always)]
+    fn _undilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x0015) & 0x1c0e;
+        self = self.wrapping_mul(0x1041) & 0x1ff0;
+        self >> 8
+    }
 }
 
-impl DilateExplicit for u32 {
+impl Sealed for u32 {
+    impl_dilatable_type_common!();
+    
     // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(mut self) -> Self {
-        undilated_max_check!(self, Self, 2);
+    fn _dilate_d2(mut self) -> Self {
         self = (self | (self << 8)) & 0x00FF00FF;
         self = (self | (self << 4)) & 0x0F0F0F0F;
         self = (self | (self << 2)) & 0x33333333;
@@ -161,23 +193,40 @@ impl DilateExplicit for u32 {
 
     // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(mut self) -> Self {
-        undilated_max_check!(self, Self, 3);
-        self = self.mul_wrapping(0x10001) & 0xFF0000FF;
-        self = self.mul_wrapping(0x00101) & 0x0F00F00F;
-        self = self.mul_wrapping(0x00011) & 0xC30C30C3;
-        self = self.mul_wrapping(0x00005) & 0x49249249;
+    fn _dilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x10001) & 0xFF0000FF;
+        self = self.wrapping_mul(0x00101) & 0x0F00F00F;
+        self = self.wrapping_mul(0x00011) & 0xC30C30C3;
+        self = self.wrapping_mul(0x00005) & 0x49249249;
         self
     }
 
-    impl_dilate_dn!();
+    // See citation [1]
+    #[inline(always)]
+    fn _undilate_d2(mut self) -> Self {
+        self = self.wrapping_mul(0x00000003) & 0x66666666;
+        self = self.wrapping_mul(0x00000005) & 0x78787878;
+        self = self.wrapping_mul(0x00000011) & 0x7F807F80;
+        self = self.wrapping_mul(0x00000101) & 0x7FFF8000;
+        self >> 15
+    }
+
+    // See citation [1]
+    #[inline(always)]
+    fn _undilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x00015) & 0x0E070381;
+        self = self.wrapping_mul(0x01041) & 0x0FF80001;
+        self = self.wrapping_mul(0x40001) & 0x0FFFFFFE;
+        self >> 18
+    }
 }
 
-impl DilateExplicit for u64 {
+impl Sealed for u64 {
+    impl_dilatable_type_common!();
+    
     // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(mut self) -> Self {
-        undilated_max_check!(self, Self, 2);
+    fn _dilate_d2(mut self) -> Self {
         self = (self | (self << 16)) & 0x0000FFFF0000FFFF;
         self = (self | (self << 08)) & 0x00FF00FF00FF00FF;
         self = (self | (self << 04)) & 0x0F0F0F0F0F0F0F0F;
@@ -188,24 +237,42 @@ impl DilateExplicit for u64 {
 
     // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(mut self) -> Self {
-        undilated_max_check!(self, Self, 3);
-        self = self.mul_wrapping(0x100000001) & 0xFFFF00000000FFFF;
-        self = self.mul_wrapping(0x000010001) & 0x00FF0000FF0000FF;
-        self = self.mul_wrapping(0x000000101) & 0xF00F00F00F00F00F;
-        self = self.mul_wrapping(0x000000011) & 0x30C30C30C30C30C3;
-        self = self.mul_wrapping(0x000000005) & 0x9249249249249249;
+    fn _dilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x100000001) & 0xFFFF00000000FFFF;
+        self = self.wrapping_mul(0x000010001) & 0x00FF0000FF0000FF;
+        self = self.wrapping_mul(0x000000101) & 0xF00F00F00F00F00F;
+        self = self.wrapping_mul(0x000000011) & 0x30C30C30C30C30C3;
+        self = self.wrapping_mul(0x000000005) & 0x9249249249249249;
         self
     }
 
-    impl_dilate_dn!();
+    // See citation [1]
+    #[inline(always)]
+    fn _undilate_d2(mut self) -> Self {
+        self = self.wrapping_mul(0x00003) & 0x6666666666666666;
+        self = self.wrapping_mul(0x00005) & 0x7878787878787878;
+        self = self.wrapping_mul(0x00011) & 0x7F807F807F807F80;
+        self = self.wrapping_mul(0x00101) & 0x7FFF80007FFF8000;
+        self = self.wrapping_mul(0x10001) & 0x7FFFFFFF80000000;
+        self >> 31
+    }
+
+    // See citation [1]
+    #[inline(always)]
+    fn _undilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x0000000000000015) & 0x1c0e070381c0e070;
+        self = self.wrapping_mul(0x0000000000001041) & 0x1ff00003fe00007f;
+        self = self.wrapping_mul(0x0000001000040001) & 0x1ffffffc00000000;
+        self >> 40
+    }
 }
 
-impl DilateExplicit for u128 {
+impl Sealed for u128 {
+    impl_dilatable_type_common!();
+    
     // See citation [2]
     #[inline(always)]
-    fn dilate_explicit_d2(mut self) -> Self {
-        undilated_max_check!(self, Self, 2);
+    fn _dilate_d2(mut self) -> Self {
         self = (self | (self << 32)) & 0x00000000FFFFFFFF00000000FFFFFFFF;
         self = (self | (self << 16)) & 0x0000FFFF0000FFFF0000FFFF0000FFFF;
         self = (self | (self << 08)) & 0x00FF00FF00FF00FF00FF00FF00FF00FF;
@@ -217,222 +284,92 @@ impl DilateExplicit for u128 {
 
     // See citation [1]
     #[inline(always)]
-    fn dilate_explicit_d3(mut self) -> Self {
-        undilated_max_check!(self, Self, 3);
-        self = self.mul_wrapping(0x10000000000000001) & 0xFFFFFFFF0000000000000000FFFFFFFF;
-        self = self.mul_wrapping(0x00000000100000001) & 0x0000FFFF00000000FFFF00000000FFFF;
-        self = self.mul_wrapping(0x00000000000010001) & 0xFF0000FF0000FF0000FF0000FF0000FF;
-        self = self.mul_wrapping(0x00000000000000101) & 0x0F00F00F00F00F00F00F00F00F00F00F;
-        self = self.mul_wrapping(0x00000000000000011) & 0xC30C30C30C30C30C30C30C30C30C30C3;
-        self = self.mul_wrapping(0x00000000000000005) & 0x49249249249249249249249249249249;
+    fn _dilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x10000000000000001) & 0xFFFFFFFF0000000000000000FFFFFFFF;
+        self = self.wrapping_mul(0x00000000100000001) & 0x0000FFFF00000000FFFF00000000FFFF;
+        self = self.wrapping_mul(0x00000000000010001) & 0xFF0000FF0000FF0000FF0000FF0000FF;
+        self = self.wrapping_mul(0x00000000000000101) & 0x0F00F00F00F00F00F00F00F00F00F00F;
+        self = self.wrapping_mul(0x00000000000000011) & 0xC30C30C30C30C30C30C30C30C30C30C3;
+        self = self.wrapping_mul(0x00000000000000005) & 0x49249249249249249249249249249249;
         self
     }
 
-    impl_dilate_dn!();
-}
-
-impl DilateExplicit for usize {
-    #[inline(always)]
-    fn dilate_explicit_d2(self) -> Self {
-        undilated_max_check!(self, Self, 2);
-        #[cfg(target_pointer_width = "8")]
-        let r = (self as u8).dilate_explicit_d2();
-        #[cfg(target_pointer_width = "16")]
-        let r = (self as u16).dilate_explicit_d2();
-        #[cfg(target_pointer_width = "32")]
-        let r = (self as u32).dilate_explicit_d2();
-        #[cfg(target_pointer_width = "64")]
-        let r = (self as u64).dilate_explicit_d2();
-        r as usize
-    }
-
-    #[inline(always)]
-    fn dilate_explicit_d3(self) -> Self {
-        undilated_max_check!(self, Self, 3);
-        #[cfg(target_pointer_width = "8")]
-        let r = (self as u8).dilate_explicit_d3();
-        #[cfg(target_pointer_width = "16")]
-        let r = (self as u16).dilate_explicit_d3();
-        #[cfg(target_pointer_width = "32")]
-        let r = (self as u32).dilate_explicit_d3();
-        #[cfg(target_pointer_width = "64")]
-        let r = (self as u64).dilate_explicit_d3();
-        r as usize
-    }
-
-    impl_dilate_dn!();
-}
-
-pub(crate) trait UndilateExplicit: NumTraits {
-    fn undilate_explicit_d2(self) -> Self;
-    fn undilate_explicit_d3(self) -> Self;
-    fn undilate_explicit_dn<const D: usize>(self) -> Self;
-}
-
-impl UndilateExplicit for u8 {
     // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d2(mut self) -> Self {
-        self = self.mul_wrapping(0x3) & 0x66;
-        self = self.mul_wrapping(0x5) & 0x78;
-        self >> 3
-    }
-
-    // See citation [1]
-    #[inline(always)]
-    fn undilate_explicit_d3(mut self) -> Self {
-        self = self.mul_wrapping(0x15) & 0x0e;
-        self >> 2
-    }
-
-    impl_undilate_dn!();
-}
-
-impl UndilateExplicit for u16 {
-    // See citation [1]
-    #[inline(always)]
-    fn undilate_explicit_d2(mut self) -> Self {
-        self = self.mul_wrapping(0x003) & 0x6666;
-        self = self.mul_wrapping(0x005) & 0x7878;
-        self = self.mul_wrapping(0x011) & 0x7f80;
-        self >> 7
-    }
-
-    // See citation [1]
-    #[inline(always)]
-    fn undilate_explicit_d3(mut self) -> Self {
-        self = self.mul_wrapping(0x0015) & 0x1c0e;
-        self = self.mul_wrapping(0x1041) & 0x1ff0;
-        self >> 8
-    }
-
-    impl_undilate_dn!();
-}
-
-impl UndilateExplicit for u32 {
-    // See citation [1]
-    #[inline(always)]
-    fn undilate_explicit_d2(mut self) -> Self {
-        self = self.mul_wrapping(0x00000003) & 0x66666666;
-        self = self.mul_wrapping(0x00000005) & 0x78787878;
-        self = self.mul_wrapping(0x00000011) & 0x7F807F80;
-        self = self.mul_wrapping(0x00000101) & 0x7FFF8000;
-        self >> 15
-    }
-
-    // See citation [1]
-    #[inline(always)]
-    fn undilate_explicit_d3(mut self) -> Self {
-        self = self.mul_wrapping(0x00015) & 0x0E070381;
-        self = self.mul_wrapping(0x01041) & 0x0FF80001;
-        self = self.mul_wrapping(0x40001) & 0x0FFFFFFE;
-        self >> 18
-    }
-
-    impl_undilate_dn!();
-}
-
-impl UndilateExplicit for u64 {
-    // See citation [1]
-    #[inline(always)]
-    fn undilate_explicit_d2(mut self) -> Self {
-        self = self.mul_wrapping(0x00003) & 0x6666666666666666;
-        self = self.mul_wrapping(0x00005) & 0x7878787878787878;
-        self = self.mul_wrapping(0x00011) & 0x7F807F807F807F80;
-        self = self.mul_wrapping(0x00101) & 0x7FFF80007FFF8000;
-        self = self.mul_wrapping(0x10001) & 0x7FFFFFFF80000000;
-        self >> 31
-    }
-
-    // See citation [1]
-    #[inline(always)]
-    fn undilate_explicit_d3(mut self) -> Self {
-        self = self.mul_wrapping(0x0000000000000015) & 0x1c0e070381c0e070;
-        self = self.mul_wrapping(0x0000000000001041) & 0x1ff00003fe00007f;
-        self = self.mul_wrapping(0x0000001000040001) & 0x1ffffffc00000000;
-        self >> 40
-    }
-
-    impl_undilate_dn!();
-}
-
-impl UndilateExplicit for u128 {
-    // See citation [1]
-    #[inline(always)]
-    fn undilate_explicit_d2(mut self) -> Self {
-        self = self.mul_wrapping(0x000000003) & 0x66666666666666666666666666666666;
-        self = self.mul_wrapping(0x000000005) & 0x78787878787878787878787878787878;
-        self = self.mul_wrapping(0x000000011) & 0x7f807f807f807f807f807f807f807f80;
-        self = self.mul_wrapping(0x000000101) & 0x7fff80007fff80007fff80007fff8000;
-        self = self.mul_wrapping(0x000010001) & 0x7fffffff800000007fffffff80000000;
-        self = self.mul_wrapping(0x100000001) & 0x7fffffffffffffff8000000000000000;
+    fn _undilate_d2(mut self) -> Self {
+        self = self.wrapping_mul(0x000000003) & 0x66666666666666666666666666666666;
+        self = self.wrapping_mul(0x000000005) & 0x78787878787878787878787878787878;
+        self = self.wrapping_mul(0x000000011) & 0x7f807f807f807f807f807f807f807f80;
+        self = self.wrapping_mul(0x000000101) & 0x7fff80007fff80007fff80007fff8000;
+        self = self.wrapping_mul(0x000010001) & 0x7fffffff800000007fffffff80000000;
+        self = self.wrapping_mul(0x100000001) & 0x7fffffffffffffff8000000000000000;
         self >> 63
     }
 
     // See citation [1]
     #[inline(always)]
-    fn undilate_explicit_d3(mut self) -> Self {
-        self = self.mul_wrapping(0x00000000000000000000000000000015) & 0x0e070381c0e070381c0e070381c0e070;
-        self = self.mul_wrapping(0x00000000000000000000000000001041) & 0x0ff80001ff00003fe00007fc0000ff80;
-        self = self.mul_wrapping(0x00000000000000000000001000040001) & 0x0ffffffe00000000000007ffffff0000;
-        self = self.mul_wrapping(0x00001000000000000040000000000001) & 0x0ffffffffffffffffffff80000000000;
+    fn _undilate_d3(mut self) -> Self {
+        self = self.wrapping_mul(0x00000000000000000000000000000015) & 0x0e070381c0e070381c0e070381c0e070;
+        self = self.wrapping_mul(0x00000000000000000000000000001041) & 0x0ff80001ff00003fe00007fc0000ff80;
+        self = self.wrapping_mul(0x00000000000000000000001000040001) & 0x0ffffffe00000000000007ffffff0000;
+        self = self.wrapping_mul(0x00001000000000000040000000000001) & 0x0ffffffffffffffffffff80000000000;
         self >> 82
     }
-
-    impl_undilate_dn!();
 }
 
-impl UndilateExplicit for usize {
+impl Sealed for usize {
+    impl_dilatable_type_common!();
+    
     #[inline(always)]
-    fn undilate_explicit_d2(self) -> Self {
+    fn _dilate_d2(self) -> Self {
         #[cfg(target_pointer_width = "8")]
-        let r = (self as u8).undilate_explicit_d2();
+        let r = (self as u8)._dilate_d2();
         #[cfg(target_pointer_width = "16")]
-        let r = (self as u16).undilate_explicit_d2();
+        let r = (self as u16)._dilate_d2();
         #[cfg(target_pointer_width = "32")]
-        let r = (self as u32).undilate_explicit_d2();
+        let r = (self as u32)._dilate_d2();
         #[cfg(target_pointer_width = "64")]
-        let r = (self as u64).undilate_explicit_d2();
+        let r = (self as u64)._dilate_d2();
         r as usize
     }
 
     #[inline(always)]
-    fn undilate_explicit_d3(self) -> Self {
+    fn _dilate_d3(self) -> Self {
         #[cfg(target_pointer_width = "8")]
-        let r = (self as u8).undilate_explicit_d3();
+        let r = (self as u8)._dilate_d3();
         #[cfg(target_pointer_width = "16")]
-        let r = (self as u16).undilate_explicit_d3();
+        let r = (self as u16)._dilate_d3();
         #[cfg(target_pointer_width = "32")]
-        let r = (self as u32).undilate_explicit_d3();
+        let r = (self as u32)._dilate_d3();
         #[cfg(target_pointer_width = "64")]
-        let r = (self as u64).undilate_explicit_d3();
+        let r = (self as u64)._dilate_d3();
         r as usize
     }
 
-    impl_undilate_dn!();
-}
-
-#[inline(always)]
-pub(crate) fn dilate_implicit<T, const D: usize>(value: T) -> T
-where
-    T: DilateExplicit,
-{
-    match D {
-        2 => value.dilate_explicit_d2(),
-        3 => value.dilate_explicit_d3(),
-        _ => value.dilate_explicit_dn::<D>(),
+    #[inline(always)]
+    fn _undilate_d2(self) -> Self {
+        #[cfg(target_pointer_width = "8")]
+        let r = (self as u8)._undilate_d2();
+        #[cfg(target_pointer_width = "16")]
+        let r = (self as u16)._undilate_d2();
+        #[cfg(target_pointer_width = "32")]
+        let r = (self as u32)._undilate_d2();
+        #[cfg(target_pointer_width = "64")]
+        let r = (self as u64)._undilate_d2();
+        r as usize
     }
-}
 
-#[inline(always)]
-pub(crate) fn undilate_implicit<T, const D: usize>(value: T) -> T
-where
-    T: UndilateExplicit,
-{
-    match D {
-        2 => value.undilate_explicit_d2(),
-        3 => value.undilate_explicit_d3(),
-        _ => value.undilate_explicit_dn::<D>(),
+    #[inline(always)]
+    fn _undilate_d3(self) -> Self {
+        #[cfg(target_pointer_width = "8")]
+        let r = (self as u8)._undilate_d3();
+        #[cfg(target_pointer_width = "16")]
+        let r = (self as u16)._undilate_d3();
+        #[cfg(target_pointer_width = "32")]
+        let r = (self as u32)._undilate_d3();
+        #[cfg(target_pointer_width = "64")]
+        let r = (self as u64)._undilate_d3();
+        r as usize
     }
 }
 

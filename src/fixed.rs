@@ -6,7 +6,13 @@
 //
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
-use crate::{internal, DilatableType, DilatedInt, DilationMethod};
+use crate::DilationMethod;
+use crate::DilatedInt;
+use crate::DilatableType;
+
+use crate::internal::Sealed;
+use crate::internal::build_fixed_undilated_max;
+use crate::internal::build_dilated_mask;
 
 /// A DilationMethod implementation which provides fixed dilation meta information
 ///
@@ -51,9 +57,9 @@ macro_rules! impl_fixed {
             type Dilated = $t;
             const D: usize = $d;
             const UNDILATED_BITS: usize = <$t>::BITS as usize / $d;
-            const UNDILATED_MAX: Self::Undilated = internal::build_fixed_undilated_max::<$t, $d>() as $t;
+            const UNDILATED_MAX: Self::Undilated = build_fixed_undilated_max::<$t, $d>() as $t;
             const DILATED_BITS: usize = Self::UNDILATED_BITS * $d;
-            const DILATED_MAX: Self::Dilated = internal::build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
+            const DILATED_MAX: Self::Dilated = build_dilated_mask(Self::UNDILATED_BITS, $d) as Self::Dilated;
             const DILATED_MASK: Self::Dilated = Self::DILATED_MAX * ((1 << $d) - 1);
 
             #[inline(always)]
@@ -68,12 +74,12 @@ macro_rules! impl_fixed {
         
             #[inline(always)]
             fn dilate(value: Self::Undilated) -> DilatedInt<Self> {
-                DilatedInt::<Self>(internal::dilate_implicit::<Self::Dilated, $d>(value))
+                DilatedInt(value.dilate::<$d>())
             }
 
             #[inline(always)]
             fn undilate(value: DilatedInt<Self>) -> Self::Undilated {
-                internal::undilate_implicit::<Self::Dilated, $d>(value.0)
+                value.0.undilate::<$d>()
             }
         }
     )+}

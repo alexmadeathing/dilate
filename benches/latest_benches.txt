@@ -1,218 +1,243 @@
-2d dilate: u16          time:   [380.95 ns 385.07 ns 389.23 ns]
-                        change: [-22.849% -22.202% -21.512%] (p = 0.00 < 0.05)
+2d dilate: u16          time:   [135.41 ns 135.72 ns 136.04 ns]
+                        change: [-7.6268% -7.1567% -6.7468%] (p = 0.00 < 0.05)
                         Performance has improved.
-Found 4 outliers among 1000 measurements (0.40%)
-  4 (0.40%) high mild
+Found 51 outliers among 1000 measurements (5.10%)
+  32 (3.20%) high mild
+  19 (1.90%) high severe
 
-2d undilate: u16        time:   [330.65 ns 335.93 ns 341.30 ns]
-                        change: [-3.1310% -1.4255% +0.3616%] (p = 0.12 > 0.05)
-                        No change in performance detected.
-
-2d dilate: u32          time:   [301.78 ns 304.91 ns 308.28 ns]
-                        change: [-0.5688% +0.6219% +1.8728%] (p = 0.29 > 0.05)
-                        No change in performance detected.
-Found 124 outliers among 1000 measurements (12.40%)
-  23 (2.30%) high mild
-  101 (10.10%) high severe
-
-2d undilate: u32        time:   [305.31 ns 309.11 ns 313.18 ns]
-                        change: [-6.4458% -5.1793% -3.8686%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 132 outliers among 1000 measurements (13.20%)
-  26 (2.60%) high mild
-  106 (10.60%) high severe
-
-2d dilate: u64          time:   [280.47 ns 283.21 ns 286.15 ns]
-                        change: [-1.6839% -0.5052% +0.7557%] (p = 0.40 > 0.05)
-                        No change in performance detected.
-Found 93 outliers among 1000 measurements (9.30%)
-  21 (2.10%) high mild
-  72 (7.20%) high severe
-
-2d undilate: u64        time:   [341.76 ns 344.79 ns 348.03 ns]
-                        change: [-5.7863% -4.6832% -3.5674%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 71 outliers among 1000 measurements (7.10%)
-  14 (1.40%) high mild
-  57 (5.70%) high severe
-
-2d dilate: u128         time:   [362.99 ns 366.43 ns 370.20 ns]
-                        change: [-0.0856% +1.0165% +2.1864%] (p = 0.08 > 0.05)
-                        No change in performance detected.
-Found 119 outliers among 1000 measurements (11.90%)
-  27 (2.70%) high mild
-  92 (9.20%) high severe
-
-2d undilate: u128       time:   [806.34 ns 815.97 ns 826.39 ns]
-                        change: [-1.8368% -0.5482% +0.5783%] (p = 0.36 > 0.05)
-                        No change in performance detected.
-Found 69 outliers among 1000 measurements (6.90%)
-  12 (1.20%) high mild
-  57 (5.70%) high severe
-
-3d dilate: u16          time:   [354.39 ns 356.16 ns 358.02 ns]
-                        change: [+0.2789% +1.0880% +1.8654%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 127 outliers among 1000 measurements (12.70%)
-  29 (2.90%) high mild
-  98 (9.80%) high severe
-
-3d undilate: u16        time:   [417.00 ns 419.34 ns 421.79 ns]
-                        change: [-1.1482% -0.4804% +0.1461%] (p = 0.14 > 0.05)
-                        No change in performance detected.
-Found 47 outliers among 1000 measurements (4.70%)
-  40 (4.00%) high mild
-  7 (0.70%) high severe
-
-3d dilate: u32          time:   [299.84 ns 302.41 ns 305.22 ns]
-                        change: [+4.7094% +5.8172% +7.0436%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 142 outliers among 1000 measurements (14.20%)
-  28 (2.80%) high mild
-  114 (11.40%) high severe
-
-3d undilate: u32        time:   [271.67 ns 274.96 ns 278.36 ns]
-                        change: [-5.8600% -4.7198% -3.6291%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 38 outliers among 1000 measurements (3.80%)
-  37 (3.70%) high mild
-  1 (0.10%) high severe
-
-3d dilate: u64          time:   [287.49 ns 290.46 ns 293.65 ns]
-                        change: [-2.7371% -1.2813% +0.1995%] (p = 0.10 > 0.05)
-                        No change in performance detected.
-Found 112 outliers among 1000 measurements (11.20%)
-  21 (2.10%) high mild
-  91 (9.10%) high severe
-
-3d undilate: u64        time:   [328.82 ns 331.77 ns 334.91 ns]
-                        change: [-5.2587% -4.1159% -2.9104%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 48 outliers among 1000 measurements (4.80%)
-  34 (3.40%) high mild
-  14 (1.40%) high severe
-
-3d dilate: u128         time:   [368.65 ns 372.33 ns 376.26 ns]
-                        change: [+0.5133% +1.5907% +2.6639%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 122 outliers among 1000 measurements (12.20%)
-  35 (3.50%) high mild
-  87 (8.70%) high severe
-
-3d undilate: u128       time:   [739.27 ns 747.13 ns 755.08 ns]
-                        change: [+15.561% +16.711% +17.924%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 2 outliers among 1000 measurements (0.20%)
-  2 (0.20%) high mild
-
-4d dilate: u16          time:   [356.18 ns 358.26 ns 360.46 ns]
-                        change: [-1.9557% -1.3411% -0.7333%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 39 outliers among 1000 measurements (3.90%)
-  37 (3.70%) high mild
-  2 (0.20%) high severe
-
-4d undilate: u16        time:   [295.39 ns 298.62 ns 301.83 ns]
-                        change: [+0.4845% +1.6636% +2.8565%] (p = 0.01 < 0.05)
-                        Change within noise threshold.
-Found 1 outliers among 1000 measurements (0.10%)
-  1 (0.10%) high mild
-
-4d dilate: u32          time:   [317.10 ns 318.42 ns 319.81 ns]
-                        change: [-1.4582% -0.9465% -0.3863%] (p = 0.00 < 0.05)
+2d undilate: u16        time:   [149.16 ns 149.54 ns 149.96 ns]
+                        change: [+0.7964% +1.1097% +1.3926%] (p = 0.00 < 0.05)
                         Change within noise threshold.
 Found 88 outliers among 1000 measurements (8.80%)
-  54 (5.40%) high mild
-  34 (3.40%) high severe
+  15 (1.50%) low mild
+  42 (4.20%) high mild
+  31 (3.10%) high severe
 
-4d undilate: u32        time:   [441.10 ns 443.55 ns 446.05 ns]
-                        change: [-0.6568% -0.0226% +0.5916%] (p = 0.94 > 0.05)
-                        No change in performance detected.
-Found 59 outliers among 1000 measurements (5.90%)
-  54 (5.40%) high mild
-  5 (0.50%) high severe
+2d dilate: u32          time:   [177.10 ns 177.44 ns 177.81 ns]
+                        change: [-2.0502% -1.7245% -1.4081%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 79 outliers among 1000 measurements (7.90%)
+  17 (1.70%) low mild
+  31 (3.10%) high mild
+  31 (3.10%) high severe
 
-4d dilate: u64          time:   [179.95 ns 181.80 ns 183.81 ns]
-                        change: [-0.8515% +0.3396% +1.4699%] (p = 0.58 > 0.05)
-                        No change in performance detected.
+2d undilate: u32        time:   [176.96 ns 177.49 ns 178.21 ns]
+                        change: [-3.0199% -1.9714% -1.1953%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 69 outliers among 1000 measurements (6.90%)
+  6 (0.60%) low mild
+  28 (2.80%) high mild
+  35 (3.50%) high severe
+
+2d dilate: u64          time:   [226.48 ns 226.94 ns 227.43 ns]
+                        change: [+1.1536% +1.4905% +1.8307%] (p = 0.00 < 0.05)
+                        Performance has regressed.
 Found 94 outliers among 1000 measurements (9.40%)
-  25 (2.50%) high mild
-  69 (6.90%) high severe
+  1 (0.10%) low mild
+  42 (4.20%) high mild
+  51 (5.10%) high severe
 
-4d undilate: u64        time:   [431.34 ns 433.14 ns 435.04 ns]
-                        change: [-0.1338% +0.4121% +1.0500%] (p = 0.17 > 0.05)
+2d undilate: u64        time:   [209.30 ns 209.77 ns 210.29 ns]
+                        change: [-12.609% -11.116% -9.6303%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 95 outliers among 1000 measurements (9.50%)
+  1 (0.10%) low mild
+  44 (4.40%) high mild
+  50 (5.00%) high severe
+
+2d dilate: u128         time:   [232.21 ns 232.70 ns 233.20 ns]
+                        change: [-0.2964% +0.0246% +0.3563%] (p = 0.88 > 0.05)
                         No change in performance detected.
-Found 82 outliers among 1000 measurements (8.20%)
-  45 (4.50%) high mild
+Found 46 outliers among 1000 measurements (4.60%)
+  23 (2.30%) high mild
+  23 (2.30%) high severe
+
+2d undilate: u128       time:   [502.87 ns 504.57 ns 506.41 ns]
+                        change: [+0.5790% +0.9868% +1.4431%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 99 outliers among 1000 measurements (9.90%)
+  40 (4.00%) high mild
+  59 (5.90%) high severe
+
+3d dilate: u16          time:   [137.06 ns 137.90 ns 138.91 ns]
+                        change: [-48.592% -48.077% -47.613%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 103 outliers among 1000 measurements (10.30%)
+  2 (0.20%) low mild
+  43 (4.30%) high mild
+  58 (5.80%) high severe
+
+3d undilate: u16        time:   [123.80 ns 124.44 ns 125.14 ns]
+                        change: [-69.265% -67.810% -66.248%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 101 outliers among 1000 measurements (10.10%)
+  43 (4.30%) high mild
+  58 (5.80%) high severe
+
+3d dilate: u32          time:   [155.78 ns 156.11 ns 156.46 ns]
+                        change: [+0.0672% +0.4409% +0.8027%] (p = 0.02 < 0.05)
+                        Change within noise threshold.
+Found 112 outliers among 1000 measurements (11.20%)
+  34 (3.40%) high mild
+  78 (7.80%) high severe
+
+3d undilate: u32        time:   [147.70 ns 148.04 ns 148.40 ns]
+                        change: [-0.6292% -0.3156% +0.0133%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+Found 110 outliers among 1000 measurements (11.00%)
+  1 (0.10%) low severe
+  43 (4.30%) high mild
+  66 (6.60%) high severe
+
+3d dilate: u64          time:   [214.15 ns 214.45 ns 214.78 ns]
+                        change: [+1.5751% +1.8661% +2.1613%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 97 outliers among 1000 measurements (9.70%)
+  9 (0.90%) low mild
+  39 (3.90%) high mild
+  49 (4.90%) high severe
+
+3d undilate: u64        time:   [144.66 ns 145.18 ns 145.83 ns]
+                        change: [-36.332% -36.082% -35.827%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 111 outliers among 1000 measurements (11.10%)
+  12 (1.20%) low severe
+  22 (2.20%) low mild
+  40 (4.00%) high mild
   37 (3.70%) high severe
 
-4d dilate: u128         time:   [283.92 ns 286.70 ns 289.69 ns]
-                        change: [-2.9541% -1.8613% -0.6862%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 52 outliers among 1000 measurements (5.20%)
-  31 (3.10%) high mild
-  21 (2.10%) high severe
-
-4d undilate: u128       time:   [700.81 ns 716.70 ns 733.04 ns]
-                        change: [-12.474% -10.219% -7.9786%] (p = 0.00 < 0.05)
+3d dilate: u128         time:   [211.71 ns 212.18 ns 212.68 ns]
+                        change: [-14.788% -14.515% -14.238%] (p = 0.00 < 0.05)
                         Performance has improved.
-Found 144 outliers among 1000 measurements (14.40%)
-  136 (13.60%) high mild
-  8 (0.80%) high severe
-
-8d dilate: u16          time:   [241.36 ns 243.21 ns 245.10 ns]
-                        change: [-1.8712% -0.9797% -0.1270%] (p = 0.03 < 0.05)
-                        Change within noise threshold.
-Found 16 outliers among 1000 measurements (1.60%)
-  16 (1.60%) high mild
-
-8d undilate: u16        time:   [272.12 ns 276.05 ns 280.09 ns]
-                        change: [-1.6317% +0.0100% +1.6836%] (p = 0.99 > 0.05)
-                        No change in performance detected.
-
-8d dilate: u32          time:   [252.64 ns 254.03 ns 255.40 ns]
-                        change: [-1.5577% -0.8655% -0.1930%] (p = 0.01 < 0.05)
-                        Change within noise threshold.
-Found 71 outliers among 1000 measurements (7.10%)
-  25 (2.50%) low severe
-  10 (1.00%) low mild
-  22 (2.20%) high mild
-  14 (1.40%) high severe
-
-8d undilate: u32        time:   [256.83 ns 258.48 ns 260.24 ns]
-                        change: [-1.2880% -0.4975% +0.3253%] (p = 0.23 > 0.05)
-                        No change in performance detected.
-Found 93 outliers among 1000 measurements (9.30%)
-  60 (6.00%) high mild
-  33 (3.30%) high severe
-
-8d dilate: u64          time:   [144.35 ns 145.52 ns 146.78 ns]
-                        change: [-1.7189% -0.9140% -0.0439%] (p = 0.04 < 0.05)
-                        Change within noise threshold.
-Found 122 outliers among 1000 measurements (12.20%)
-  70 (7.00%) high mild
-  52 (5.20%) high severe
-
-8d undilate: u64        time:   [198.21 ns 200.11 ns 202.18 ns]
-                        change: [-3.9916% -3.0202% -2.0559%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 132 outliers among 1000 measurements (13.20%)
+Found 105 outliers among 1000 measurements (10.50%)
   2 (0.20%) low mild
-  31 (3.10%) high mild
-  99 (9.90%) high severe
+  48 (4.80%) high mild
+  55 (5.50%) high severe
 
-8d dilate: u128         time:   [245.45 ns 248.45 ns 251.67 ns]
-                        change: [+9.1444% +10.503% +11.903%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 121 outliers among 1000 measurements (12.10%)
-  21 (2.10%) high mild
-  100 (10.00%) high severe
+3d undilate: u128       time:   [349.21 ns 350.15 ns 351.22 ns]
+                        change: [-12.654% -12.358% -12.061%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 59 outliers among 1000 measurements (5.90%)
+  28 (2.80%) high mild
+  31 (3.10%) high severe
 
-8d undilate: u128       time:   [463.74 ns 465.85 ns 468.09 ns]
-                        change: [-0.2812% +0.3479% +1.0468%] (p = 0.29 > 0.05)
-                        No change in performance detected.
-Found 119 outliers among 1000 measurements (11.90%)
+4d dilate: u16          time:   [102.69 ns 102.91 ns 103.14 ns]
+                        change: [-39.408% -39.171% -38.956%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 48 outliers among 1000 measurements (4.80%)
   1 (0.10%) low mild
-  27 (2.70%) high mild
-  91 (9.10%) high severe
+  28 (2.80%) high mild
+  19 (1.90%) high severe
 
+4d undilate: u16        time:   [100.93 ns 101.12 ns 101.32 ns]
+                        change: [-38.034% -37.829% -37.626%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 97 outliers among 1000 measurements (9.70%)
+  34 (3.40%) high mild
+  63 (6.30%) high severe
+
+4d dilate: u32          time:   [106.74 ns 107.03 ns 107.31 ns]
+                        change: [-39.075% -38.687% -38.331%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 30 outliers among 1000 measurements (3.00%)
+  4 (0.40%) low mild
+  17 (1.70%) high mild
+  9 (0.90%) high severe
+
+4d undilate: u32        time:   [95.630 ns 95.784 ns 95.948 ns]
+                        change: [-35.197% -34.936% -34.630%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 68 outliers among 1000 measurements (6.80%)
+  4 (0.40%) low mild
+  33 (3.30%) high mild
+  31 (3.10%) high severe
+
+4d dilate: u64          time:   [117.13 ns 117.38 ns 117.64 ns]
+                        change: [-38.332% -38.141% -37.958%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 73 outliers among 1000 measurements (7.30%)
+  35 (3.50%) high mild
+  38 (3.80%) high severe
+
+4d undilate: u64        time:   [100.60 ns 100.81 ns 101.04 ns]
+                        change: [-34.300% -34.071% -33.856%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 95 outliers among 1000 measurements (9.50%)
+  35 (3.50%) high mild
+  60 (6.00%) high severe
+
+4d dilate: u128         time:   [131.33 ns 131.61 ns 131.91 ns]
+                        change: [-33.738% -32.671% -31.822%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 85 outliers among 1000 measurements (8.50%)
+  31 (3.10%) high mild
+  54 (5.40%) high severe
+
+4d undilate: u128       time:   [268.05 ns 268.60 ns 269.19 ns]
+                        change: [-23.799% -23.545% -23.292%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 58 outliers among 1000 measurements (5.80%)
+  32 (3.20%) high mild
+  26 (2.60%) high severe
+
+8d dilate: u16          time:   [76.493 ns 76.664 ns 76.844 ns]
+                        change: [-43.430% -43.030% -42.713%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 79 outliers among 1000 measurements (7.90%)
+  37 (3.70%) high mild
+  42 (4.20%) high severe
+
+8d undilate: u16        time:   [108.49 ns 108.79 ns 109.12 ns]
+                        change: [-31.921% -31.637% -31.224%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 90 outliers among 1000 measurements (9.00%)
+  20 (2.00%) low mild
+  40 (4.00%) high mild
+  30 (3.00%) high severe
+
+8d dilate: u32          time:   [58.001 ns 58.153 ns 58.313 ns]
+                        change: [-55.166% -54.963% -54.757%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 101 outliers among 1000 measurements (10.10%)
+  4 (0.40%) low mild
+  51 (5.10%) high mild
+  46 (4.60%) high severe
+
+8d undilate: u32        time:   [84.105 ns 84.245 ns 84.399 ns]
+                        change: [-38.620% -38.434% -38.244%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 76 outliers among 1000 measurements (7.60%)
+  2 (0.20%) low mild
+  29 (2.90%) high mild
+  45 (4.50%) high severe
+
+8d dilate: u64          time:   [95.931 ns 96.134 ns 96.349 ns]
+                        change: [-40.099% -39.809% -39.570%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 63 outliers among 1000 measurements (6.30%)
+  33 (3.30%) high mild
+  30 (3.00%) high severe
+
+8d undilate: u64        time:   [94.924 ns 95.134 ns 95.356 ns]
+                        change: [-34.274% -34.034% -33.793%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 72 outliers among 1000 measurements (7.20%)
+  4 (0.40%) low severe
+  11 (1.10%) low mild
+  31 (3.10%) high mild
+  26 (2.60%) high severe
+
+8d dilate: u128         time:   [108.30 ns 108.58 ns 108.88 ns]
+                        change: [-32.978% -32.657% -32.337%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 81 outliers among 1000 measurements (8.10%)
+  41 (4.10%) high mild
+  40 (4.00%) high severe
+
+8d undilate: u128       time:   [229.52 ns 230.08 ns 230.66 ns]
+                        change: [-8.3539% -7.8399% -7.3988%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 103 outliers among 1000 measurements (10.30%)
+  27 (2.70%) low mild
+  40 (4.00%) high mild
+  36 (3.60%) high severe
