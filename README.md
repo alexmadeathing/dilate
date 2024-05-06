@@ -9,7 +9,7 @@ This library is in an alpha stage of development. It is feature complete at a ba
 For migration notes, please see: https://github.com/alexmadeathing/dilate/releases
 
 # dilate
-A compact, high performance integer dilation library for Rust.
+A compact, high performance, multi-dimensional, integer dilation library for Rust.
 
 Integer dilation is the process of converting cartesian indices (eg.
 coordinates) into a format suitable for use in D-dimensional algorithms
