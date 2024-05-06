@@ -243,8 +243,6 @@ impl DilateExplicit for usize {
         let r = (self as u32).dilate_explicit_d2();
         #[cfg(target_pointer_width = "64")]
         let r = (self as u64).dilate_explicit_d2();
-        #[cfg(target_pointer_width = "128")]
-        let r = (self as u128).dilate_explicit_d2();
         r as usize
     }
 
@@ -259,8 +257,6 @@ impl DilateExplicit for usize {
         let r = (self as u32).dilate_explicit_d3();
         #[cfg(target_pointer_width = "64")]
         let r = (self as u64).dilate_explicit_d3();
-        #[cfg(target_pointer_width = "128")]
-        let r = (self as u128).dilate_explicit_d3();
         r as usize
     }
 
