@@ -103,6 +103,8 @@ For feature requests, please [submit a feature request](https://github.com/alexm
 
 If you have ideas and want to contribute directly, pull requests are most welcome. If it's a small change just submit a pull request. If you're planning a large or breaking change, please create an [Idea discussion](https://github.com/alexmadeathing/dilate/discussions/new) in the discussions area so that we can reach a concensus.
 
+This project is actively maintained for free. If you are a business, or have the cash to do so, and you find this library useful, please consider [Sponsoring](https://github.com/sponsors/alexmadeathing) to keep this kind of project alive.
+
 # References and Acknowledgments
 Many thanks to the authors of the following white papers:
 * \[1\] Converting to and from Dilated Integers - Rajeev Raman and David S. Wise
