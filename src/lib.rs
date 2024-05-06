@@ -235,12 +235,45 @@ pub trait DilationMethod {
     /// [NumTraits](https://crates.io/crates/num-traits) crate.
     fn to_undilated(dilated: Self::Dilated) -> Self::Undilated;
 
-    // This is needed here because we can't yet call internal::Sealed::dilate::<DM::D>() from DilateFixed/DilateExpand
-    #[doc(hidden)]
+    /// This function carries out the dilation process, converting the
+    /// [DilationMethod::Undilated] value to a [DilatedInt].
+    ///
+    /// This function is exposed as a secondary interface and you may prefer
+    /// the more human friendly trait methods: [DilateExpand::dilate_expand()]
+    /// and [DilateFixed::dilate_fixed()].
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dilate::*;
+    ///
+    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101), DilatedInt::<Expand<u8, 2>>::new(0b01010001));
+    /// assert_eq!(Expand::<u8, 2>::dilate(0b1101).value(), 0b01010001);
+    ///
+    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101), DilatedInt::<Fixed<u16, 3>>::new(0b001001000001));
+    /// assert_eq!(Fixed::<u16, 3>::dilate(0b1101).value(), 0b001001000001);
+    /// ```
+    ///
+    /// See also [DilateExpand::dilate_expand()], [DilateFixed::dilate_fixed()]
     fn dilate(value: Self::Undilated) -> DilatedInt<Self>;
 
-    // This is needed here because we can't yet call internal::Sealed::undilate::<DM::D>() from DilateInt
-    #[doc(hidden)]
+    /// This function carries out the undilation process, converting a
+    /// [DilatedInt] back to an [DilationMethod::Undilated] value.
+    ///
+    /// This function is exposed as a secondary interface and you may prefer
+    /// the more human friendly method: [DilatedInt::undilate()].
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dilate::*;
+    ///
+    /// let dilated = Expand::<u8, 2>::dilate(0b1101);
+    /// assert_eq!(Expand::<u8, 2>::undilate(dilated), 0b1101);
+    ///
+    /// let dilated = Fixed::<u16, 3>::dilate(0b1101);
+    /// assert_eq!(Fixed::<u16, 3>::undilate(dilated), 0b1101);
+    /// ```
+    ///
+    /// See also [DilatedInt::undilate()]
     fn undilate(value: DilatedInt<Self>) -> Self::Undilated;
 }
 

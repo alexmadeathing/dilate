@@ -22,13 +22,11 @@ pub(crate) trait Sealed: Sized + Clone + Copy + Default + Debug + PartialEq + Eq
     // Utility methods
     fn _dilate_d2(self) -> Self;
     fn _dilate_d3(self) -> Self;
-    fn _dilate_dn<const D: usize>(self) -> Self;
     fn _undilate_d2(self) -> Self;
     fn _undilate_d3(self) -> Self;
-    fn _undilate_dn<const D: usize>(self) -> Self;
 }
 
-macro_rules! impl_dilatable_type_common {
+macro_rules! impl_sealed_common {
     () => {
         #[inline(always)]
         fn is_valid_dilated_value(self, dilated_max: Self) -> bool {
@@ -36,7 +34,8 @@ macro_rules! impl_dilatable_type_common {
         }
 
         #[inline(always)]
-        fn dilate<const D: usize>(self) -> Self {
+        fn dilate<const D: usize>(mut self) -> Self {
+            debug_assert!(D > 1, "Generic parameter 'D' must be greater than 1");
             debug_assert!(
                 self <= build_fixed_undilated_max::<Self, D>() as Self,
                 "Attempting to dilate a value which exceeds maximum (See DilationMethod::UNDILATED_MAX)"
@@ -45,16 +44,33 @@ macro_rules! impl_dilatable_type_common {
             match D {
                 2 => self._dilate_d2(),
                 3 => self._dilate_d3(),
-                _ => self._dilate_dn::<D>(),
+                _ => {
+                    let mut i = 0;
+                    while i <= dilate_max_round::<Self, D>() {
+                        self = self.wrapping_mul(dilate_mult::<Self, D>(i) as Self)
+                            & dilate_mask::<Self, D>(i) as Self;
+                        i += 1;
+                    }
+                    self
+                },
             }
         }
         
         #[inline(always)]
-        fn undilate<const D: usize>(self) -> Self {
+        fn undilate<const D: usize>(mut self) -> Self {
+            debug_assert!(D > 1, "Generic parameter 'D' must be greater than 1");
             match D {
                 2 => self._undilate_d2(),
                 3 => self._undilate_d3(),
-                _ => self._undilate_dn::<D>(),
+                _ => {
+                    let mut i = 0;
+                    while i <= undilate_max_round::<Self, D>() {
+                        self = self.wrapping_mul(undilate_mult::<Self, D>(i) as Self)
+                            & undilate_mask::<Self, D>(i) as Self;
+                        i += 1;
+                    }
+                    self >> undilate_shift::<Self, D>() as Self
+                },
             }
         }
 
@@ -77,35 +93,11 @@ macro_rules! impl_dilatable_type_common {
         fn sub(self, rhs: Self, dilated_max: Self) -> Self {
             self.wrapping_sub(rhs) & dilated_max
         }
-
-        #[inline(always)]
-        fn _dilate_dn<const D: usize>(mut self) -> Self {
-            debug_assert!(D > 2, "Generic parameter 'D' must be greater than 2");
-            let mut i = 0;
-            while i <= dilate_max_round::<Self, D>() {
-                self = self.wrapping_mul(dilate_mult::<Self, D>(i) as Self)
-                    & dilate_mask::<Self, D>(i) as Self;
-                i += 1;
-            }
-            self
-        }
-
-        #[inline(always)]
-        fn _undilate_dn<const D: usize>(mut self) -> Self {
-            debug_assert!(D > 1, "Generic parameter 'D' must be greater than 1");
-            let mut i = 0;
-            while i <= undilate_max_round::<Self, D>() {
-                self = self.wrapping_mul(undilate_mult::<Self, D>(i) as Self)
-                    & undilate_mask::<Self, D>(i) as Self;
-                i += 1;
-            }
-            self >> undilate_shift::<Self, D>() as Self
-        }
     };
 }
 
 impl Sealed for u8 {
-    impl_dilatable_type_common!();
+    impl_sealed_common!();
 
     // See citation [2]
     #[inline(always)]
@@ -140,7 +132,7 @@ impl Sealed for u8 {
 }
 
 impl Sealed for u16 {
-    impl_dilatable_type_common!();
+    impl_sealed_common!();
     
     // See citation [2]
     #[inline(always)]
@@ -179,7 +171,7 @@ impl Sealed for u16 {
 }
 
 impl Sealed for u32 {
-    impl_dilatable_type_common!();
+    impl_sealed_common!();
     
     // See citation [2]
     #[inline(always)]
@@ -222,7 +214,7 @@ impl Sealed for u32 {
 }
 
 impl Sealed for u64 {
-    impl_dilatable_type_common!();
+    impl_sealed_common!();
     
     // See citation [2]
     #[inline(always)]
@@ -268,7 +260,7 @@ impl Sealed for u64 {
 }
 
 impl Sealed for u128 {
-    impl_dilatable_type_common!();
+    impl_sealed_common!();
     
     // See citation [2]
     #[inline(always)]
@@ -318,7 +310,7 @@ impl Sealed for u128 {
 }
 
 impl Sealed for usize {
-    impl_dilatable_type_common!();
+    impl_sealed_common!();
     
     #[inline(always)]
     fn _dilate_d2(self) -> Self {
