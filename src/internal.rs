@@ -26,6 +26,65 @@
 //
 // Permission has been explicitly granted to reproduce the agorithms within each paper.
 
+pub trait Sealed {
+    fn from_u8(value: u8) -> Self;
+    fn from_u16(value: u16) -> Self;
+    fn from_u32(value: u32) -> Self;
+    fn from_u64(value: u64) -> Self;
+    fn from_u128(value: u128) -> Self;
+    fn from_usize(value: usize) -> Self;
+    fn to_u8(self) -> u8;
+    fn to_u16(self) -> u16;
+    fn to_u32(self) -> u32;
+    fn to_u64(self) -> u64;
+    fn to_u128(self) -> u128;
+    fn to_usize(self) -> usize;
+}
+
+macro_rules! impl_sealed {
+    ($($t:ty),+) => {$(
+        impl Sealed for $t {
+            #[inline(always)]
+            fn from_u8(value: u8) -> Self { value as $t }
+
+            #[inline(always)]
+            fn from_u16(value: u16) -> Self { value as $t }
+
+            #[inline(always)]
+            fn from_u32(value: u32) -> Self { value as $t }
+
+            #[inline(always)]
+            fn from_u64(value: u64) -> Self { value as $t }
+
+            #[inline(always)]
+            fn from_u128(value: u128) -> Self { value as $t }
+
+            #[inline(always)]
+            fn from_usize(value: usize) -> Self { value as $t }
+
+            #[inline(always)]
+            fn to_u8(self) -> u8 { self as u8 }
+
+            #[inline(always)]
+            fn to_u16(self) -> u16 { self as u16 }
+
+            #[inline(always)]
+            fn to_u32(self) -> u32 { self as u32 }
+
+            #[inline(always)]
+            fn to_u64(self) -> u64 { self as u64 }
+
+            #[inline(always)]
+            fn to_u128(self) -> u128 { self as u128 }
+
+            #[inline(always)]
+            fn to_usize(self) -> usize { self as usize }
+        }
+    )+};
+}
+
+impl_sealed!(u8, u16, u32, u64, u128, usize);
+
 pub trait NumTraits: Copy {
     fn zero() -> Self;
     fn one() -> Self;
